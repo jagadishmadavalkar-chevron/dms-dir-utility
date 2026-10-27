@@ -1,0 +1,74 @@
+package DIRBulkUpdate;
+
+import java.util.Map;
+
+public interface Constants {
+
+	static final String dbTags = "bo_ids";
+    static final String floc = "FLOC";
+    static final String tlst = "TLST";
+    static final String ipln = "IPLN";
+    static final String wrdr = "WRDR";
+    static final String equi = "EQUI";
+    static final String dbDocId = "r_object_id";
+    static final String dbSrcCol = "source";
+    static final String dbStsCol = "status";
+    static final String dbSnoCol = "s.no";
+    static final String dbFlocIDCol = "floc_curr_tags";
+    static final String dbTlstIDCol = "tlst_curr_tags";
+    static final String dbIplnIDCol = "ipln_curr_tags";
+    static final String dbWrdrIDCol = "wrdr_curr_tags";
+    static final String dbEquiIDCol = "equi_curr_tags";
+    static final String dbDirNumberCol = "dir_number";
+    static final String dbOperationCol = "operation";
+    static final String errorStatus = "ERROR";
+    static final String completedStatus = "COMPLETED";
+    static final String partCompletedStatus = "PARTIALLY COMPLETED";
+    static final String na = "NA";
+	static final String d2DirField = "sap_dir_num";
+	static final Map<String, String> objIndex = Map.of(floc, "IFLOT", tlst, "PMPLKO", ipln, "QMPLKO",wrdr, "PMAUFK", equi, "EQUI");
+	static final String d2AuditedField = "audited_obj_id";
+	static final String sapDocTypeField = "DOCUMENTTYPE";
+	static final String sapDocNumberField = "DOCUMENTNUMBER";
+	static final String sapDocPartField = "DOCUMENTPART";
+	static final String sapDocVersionField = "DOCUMENTVERSION";
+	static final String sapClassTypeField = "CLASSTYPE";
+	static final String sapClassNameField = "CLASSNAME";
+	static final String sapCharNameField = "CHARNAME";
+	static final String sapDocFileField = "DOCFILE";
+	static final String sapWSApplicationField = "WSAPPLICATION";
+	static final String sapStorageCategoryField = "STORAGECATEGORY";
+	static final String sapDeleteValueField = "DELETEVALUE";
+	static final String sapObjectTypeField = "OBJECTTYPE";
+	static final String sapObjectKeyField = "OBJECTKEY";
+	static final String d2IplnSplitValue = "Q";
+	static final String sapObjectLinksTable = "OBJECTLINKS";
+	static final String sapComponentsTable = "COMPONENTS";
+	static final String sapClassAllocationsTable = "CLASSALLOCATIONS";
+	static final String sapCharacteristicValuesTable = "CHARACTERISTICVALUES";
+	static final String sapDocumentDataTable = "DOCUMENTDATA";
+	static final String sapDocumentFilesTable = "DOCUMENTFILES";
+	static final String authTokenCallPayload = "grant_type=password&client_id=%s&client_secret=%s&resource=%s&username=%s&password=%s";
+	static final String create = "CREATE";
+	static final String update = "UPDATE";
+	static final String delete = "DELETE";
+	static final String process = "readytoprocess";
+	static final String d2ChronicleId = "i_chronicle_id";
+	static final String d2ObjectName = "object_name";
+	static final String d2AlternateLabel = "bo_id";
+	static final String d2ExtSystemId = "ext_system_id";
+	static final String dbLabel = "label";
+	static final String dbAlternateLabel = "alternate_label";
+	static final String updateResponse = "rfc:BAPI_DOCUMENT_CHANGE2.Response";
+	static final String createResponse = "rfc:BAPI_DOCUMENT_CREATE2.Response";
+	static final String deleteResponse = "rfc:BAPI_DOCUMENT_DELETE.Response";
+	static final String message = "MESSAGE";
+	static final String dirNumberResponse = "DOCUMENTNUMBER";
+	static final String ret = "RETURN";
+	static final String d2TitleField = "title";
+	static final String sapDescriptionField="DESCRIPTION";
+	// R4A
+	static final Map<String, String> objTypes = Map.of(floc, "xecm_sap_functl_loc", tlst, "xecm_sap_tasklist", ipln, "xecm_sap_inspection_plan",wrdr, "xecm_sap_work_order", equi, "xecm_sap_equipment");
+	static final String dbPlant = "plant";
+	static final String d2PlanningPlant = "maint_plng_plan";
+}

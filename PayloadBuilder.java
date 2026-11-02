@@ -4,13 +4,14 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class PayloadBuilder {
-	protected static String buildPayload(JSONObject boIdsJson, String r_object_id, BUProperties bu) {
+	protected static String buildPayload(JSONObject boIdsJson, String r_object_id, BUProperties bu, String title) {
 		String root="";
 		JSONObject table1 = new JSONObject();
+		String documentTitle = (bu.titles.get(r_object_id) != null && !bu.titles.get(r_object_id).trim().isEmpty()) ? bu.titles.get(r_object_id) : title; // R4A
 		root=root+"{\""+Constants.sapCharacteristicValuesTable+"\":"+ buildCharacteristicValues(bu).toString()+",";
 		root=root+"\""+Constants.sapClassAllocationsTable+"\":"+ buildClassAllocations(bu).toString()+",";
-		root=root+"\""+Constants.sapDocumentDataTable+"\":"+ buildDocumentData("*",bu, bu.titles.get(r_object_id)).toString()+",";
-		table1.put("item", buildDocumentFiles(r_object_id, bu, bu.titles.get(r_object_id))); // R4A
+		root=root+"\""+Constants.sapDocumentDataTable+"\":"+ buildDocumentData("*",bu, documentTitle).toString()+",";
+		table1.put("item", buildDocumentFiles(r_object_id, bu, documentTitle)); // R4A
 		root=root+"\""+Constants.sapDocumentFilesTable+"\":"+table1.toString()+",";
 		root=root+"\""+Constants.sapObjectLinksTable+"\":"+ buildObjectLinks(boIdsJson,bu)+"}";
 		return root.toString();
@@ -123,7 +124,6 @@ public class PayloadBuilder {
 				return bu.flocLabelToAlternate.get(id);
 			}else {
 				return(id);
-				
 			}
 		}else {
 			String[] ids = id.split(Constants.d2IplnSplitValue);

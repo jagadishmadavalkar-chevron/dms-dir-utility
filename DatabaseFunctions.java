@@ -434,7 +434,8 @@ public class DatabaseFunctions {
 					Integer sno = rs.getInt(Constants.dbSnoCol);
 					String dirNumber = rs.getString(Constants.dbDirNumberCol);
 					String planningPlant = rs.getString(Constants.dbPlant); // R4A
-					esSap.execute(new SAPOperations(boIdsJson,r_object_id,operation, bu,sno, sapLatch, dirNumber, planningPlant)); // R4A
+					String title = rs.getString(Constants.d2TitleField); // R4A
+					esSap.execute(new SAPOperations(boIdsJson,r_object_id,operation, bu,sno, sapLatch, dirNumber, planningPlant, title)); // R4A
 				}
 				sapLatch.await();
 			}
@@ -571,7 +572,7 @@ public class DatabaseFunctions {
 		
 	}
 	
-	public static String getAuthToken(BUProperties bu){
+	public static synchronized String getAuthToken(BUProperties bu){
 		try {
 				//String body1 = "grant_type=password&client_id=10e45a21-dae8-4db9-b443-9e372adf13af&client_secret=6V48Q~XVxbopWxfYSpwJIEhIAEP9HKTE4MT2FaW1&resource=b03f66a5-0b23-4981-8e38-fef20db32755&username=R_ECMADMIN_APIM_SVC@chevron.onmicrosoft.com&password=TFb^EejiM(6(3^P0";
 				String encodedPassword = URLEncoder.encode(bu.apimPassword, StandardCharsets.UTF_8.toString()); // R4A				
@@ -621,6 +622,8 @@ public class DatabaseFunctions {
 			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
 		}
 	}
+	
+	
 		
 
 }

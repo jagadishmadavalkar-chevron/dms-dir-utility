@@ -33,22 +33,17 @@ public class DatabaseFunctions {
      * This function is used to make a connection to the database. It takes in
      * the connection details and returns the connection.
      */
-    protected static Connection connectToDatabase(String jdbcURL, String dBUsername, String dBPassword) throws SQLException { //(String jdbcURL, String dBUsername, String dBPassword)
+    protected static Connection connectToDatabase(String jdbcURL, String dBUsername, String dBPassword) throws SQLException {
         Connection connection = null;
-
         try {
-            connection = DriverManager.getConnection(jdbcURL,dBUsername, dBPassword);
-            System.out.println("Database connection successful");
+            connection = DriverManager.getConnection(jdbcURL, dBUsername, dBPassword);
             DIRBulkUpdate.logger.info("Database connection successful");
         } catch (SQLException e) {
-            e.printStackTrace();
-            System.err.println("Database connection failed");
-            DIRBulkUpdate.logger.info("Database connection failed");
-            DIRBulkUpdate.logger.info("Error: "+ e.getMessage());
+            DIRBulkUpdate.logger.error("Database connection failed", e);
         }
         return connection;
     }
-	
+
 	/*
      * This function is used to query the DB for staging and processing batch numbers.
      * It takes the properties, the DB connection, and the BU name. It returns an
@@ -56,51 +51,37 @@ public class DatabaseFunctions {
      */
     protected static Integer getMaxBatchValue(Properties prop, Connection conn, String buName) throws SQLException {
         String processingDBtableSql = String.format(prop.getProperty("maxBatchNumber"), prop.getProperty("processingDBtable"));
-        //String stagingDBtableSql = String.format("select batchno from %s where bu='%s' order by batchno desc limit 1", prop.getProperty("stagingDBtable"), buName);
         Integer batchno;
         try (Statement statementp = conn.createStatement();
              ResultSet processingDBtablers = statementp.executeQuery(processingDBtableSql)) {
             if (processingDBtablers.next()) {
-                System.out.println(buName + ":" + Thread.currentThread().getName() +  " processingDBtableMaxbatchno :" + (processingDBtablers.getInt(1) + 1));
-                DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  " processingDBtableMaxbatchno :" + (processingDBtablers.getInt(1) + 1));
                 batchno = processingDBtablers.getInt(1) + 1;
+                DIRBulkUpdate.logger.info("{}:{} [INIT] processingDBtableMaxbatchno={}", buName, Thread.currentThread().getName(), batchno);
             } else {
-                System.out.println(buName + ":" + Thread.currentThread().getName() +  ":" + "First processing batch for " + buName);
-                DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  ":" + "First processing batch for " + buName);
+                DIRBulkUpdate.logger.info("{}:{} [INIT] First processing batch for {}", buName, Thread.currentThread().getName(), buName);
                 batchno = 1;
             }
         } catch (SQLException e) {
-            e.printStackTrace();
-            System.err.println(buName + ":" + Thread.currentThread().getName() +  "Database connection failed");
-            DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  "Database connection failed");
-            DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  "Error: "+e.getMessage());
+            DIRBulkUpdate.logger.error("{}:{} [INIT] Database batch query failed", buName, Thread.currentThread().getName(), e);
             throw e;
         }
         return batchno;
     }
-    
+
     protected static String getDateOfLastRun(Properties prop, Connection conn, String buName) throws SQLException {
         String processingDBtableSql = String.format(prop.getProperty("lastRunDate"), prop.getProperty("processingDBtable"), buName);
-        //String stagingDBtableSql = String.format("select batchno from %s where bu='%s' order by batchno desc limit 1", prop.getProperty("stagingDBtable"), buName);
         String dateOfLastRun;
-        
         try (Statement statementp = conn.createStatement();
              ResultSet processingDBtablers = statementp.executeQuery(processingDBtableSql)) {
             if (processingDBtablers.next()) {
-                System.out.println(buName + ":" + Thread.currentThread().getName() +  " processingDBtableLastRun :" + (processingDBtablers.getString(1)));
-                DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  " processingDBtableLastRun :" + (processingDBtablers.getString(1)));
                 dateOfLastRun = processingDBtablers.getString(1);
-                        
+                DIRBulkUpdate.logger.info("{}:{} [INIT] processingDBtableLastRun={}", buName, Thread.currentThread().getName(), dateOfLastRun);
             } else {
-                System.out.println(buName + ":" + Thread.currentThread().getName() +  ":" + "First processing batch for " + buName);
-                DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  ":" + "First processing batch for " + buName);
-                dateOfLastRun="01/01/2020";
+                DIRBulkUpdate.logger.info("{}:{} [INIT] First processing batch for {}", buName, Thread.currentThread().getName(), buName);
+                dateOfLastRun = "01/01/2020";
             }
         } catch (SQLException e) {
-            e.printStackTrace();
-            System.err.println(buName + ":" + Thread.currentThread().getName() +  "Database connection failed");
-            DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  "Database connection failed");
-            DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() +  "Error: "+e.getMessage());
+            DIRBulkUpdate.logger.error("{}:{} [INIT] Database last-run-date query failed", buName, Thread.currentThread().getName(), e);
             throw e;
         }
         return dateOfLastRun;
@@ -109,17 +90,13 @@ public class DatabaseFunctions {
     
 
 	public static void populateStagingTable(BUProperties bu) throws SQLException {
-		try(PreparedStatement stmtStaging = bu.conn.prepareStatement(bu.stagingDbUpdateSql)) {
+		try (PreparedStatement stmtStaging = bu.conn.prepareStatement(bu.stagingDbUpdateSql)) {
 			bu.conn.setAutoCommit(false);
 			for (String key : bu.buMap.keySet()) {
                 String objectId = key;
                 String boIds = "";
-                bu.messages.put(objectId, "Business Objects For DIR: "+bu.buMap.get(objectId).toString()+" | ");
-                //System.out.println(bu.buMap.get(key).toString());
-                
-                boIds=bu.buMap.get(key).toString();
-                
-                
+                bu.messages.put(objectId, "Business Objects For DIR: " + bu.buMap.get(objectId).toString() + " | ");
+                boIds = bu.buMap.get(key).toString();
                 stmtStaging.setString(2, boIds);
                 stmtStaging.setString(1, objectId);
                 stmtStaging.setString(3, bu.buName);
@@ -130,332 +107,282 @@ public class DatabaseFunctions {
             stmtStaging.executeBatch();
             bu.conn.commit();
             bu.conn.setAutoCommit(true);
-		}catch(SQLException e) {
+		} catch (SQLException e) {
 			bu.conn.rollback();
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error updating staging table");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error updating staging table");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "error: " + e.getMessage());
-			e.printStackTrace();
+			DIRBulkUpdate.logger.error("{}:{} [STAGING] Error updating staging table", bu.buName, Thread.currentThread().getName(), e);
 		}
 		
 	}
 
 	public static void populateProcessingTable(BUProperties bu) {
 	        
-	        try (PreparedStatement stmt = bu.conn.prepareStatement(bu.processingDbInsertStmt)) {
-	        	bu.conn.setAutoCommit(false);
-	            for (String entry : bu.buMap.keySet()) {
-	                String objectId = entry;
-	                String boIds = bu.buMap.get(entry).toString();
-	                //System.out.println(bu.messages.get(objectId));
-//	                System.out.println(">>>>>buMap objectId: " + objectId);
-//	                System.out.println(">>>>>buMap boIds: " + boIds);
-//	                System.out.println(">>>>>Getting the plant for buMap: " + bu.buMapWithPlants.get(objectId).toString());
-	                
-	                stmt.setString(1, objectId);
-	                stmt.setString(2, bu.buName);
-	                stmt.setString(3, boIds);
-	                stmt.setInt(4, bu.batchNo);
-	                stmt.setString(5, Constants.process);
-	                stmt.setString(6, Constants.create);
-	                stmt.setString(7, null);
-	                stmt.setString(8, bu.messages.get(objectId));
-	                stmt.setString(9, bu.docsWithNewVersion.get(objectId).keySet().iterator().next());
-	                stmt.setString(10, bu.titles.get(objectId));
-	                stmt.setString(11, bu.buMapWithPlants.get(objectId).toString()); // R4A
-	                stmt.addBatch();
-	            }
+        try (PreparedStatement stmt = bu.conn.prepareStatement(bu.processingDbInsertStmt)) {
+        	bu.conn.setAutoCommit(false);
+            for (String entry : bu.buMap.keySet()) {
+                String objectId = entry;
+                String boIds = bu.buMap.get(entry).toString();
+                DIRBulkUpdate.logger.debug("{}:{} [PROCESS] objectId={} boIds={}", bu.buName, Thread.currentThread().getName(), objectId, boIds);
+                DIRBulkUpdate.logger.debug("{}:{} [PROCESS] plant={}", bu.buName, Thread.currentThread().getName(), bu.buMapWithPlants.get(objectId));
+
+                stmt.setString(1, objectId);
+                stmt.setString(2, bu.buName);
+                stmt.setString(3, boIds);
+                stmt.setInt(4, bu.batchNo);
+                stmt.setString(5, Constants.process);
+                stmt.setString(6, Constants.create);
+                stmt.setString(7, null);
+                stmt.setString(8, bu.messages.get(objectId));
+                stmt.setString(9, bu.docsWithNewVersion.get(objectId).keySet().iterator().next());
+                stmt.setString(10, bu.titles.get(objectId));
+	            stmt.setString(11, bu.buMapWithPlants.get(objectId).toString()); // R4A
+                stmt.addBatch();
+            }
 	            
 
-	            for (String entry : bu.buMapForUpdate.keySet()) {
-	            	String objectId = entry;
-	                String boIds = bu.buMapForUpdate.get(entry).toString();
-	                String dirNumber = bu.docsWithDir.get(entry);
-	                
-//	                System.out.println(">>>>>buMapForUpdate objectId: " + objectId);
-//	                System.out.println(">>>>>buMapForUpdate boIds: " + boIds);
-//	                System.out.println(">>>>>buMapForUpdate dirNumber: " + dirNumber);
-//	                System.out.println("Getting the plant for buMapForUpdate: " + bu.buMapWithPlants.get(objectId).toString());
-	                
-	                stmt.setString(1, objectId);
-	                stmt.setString(2, bu.buName);
-	                stmt.setString(3, boIds);
-	                stmt.setInt(4, bu.batchNo);
-	                stmt.setString(5, Constants.process);
-	                stmt.setString(6, Constants.update);
-	                stmt.setString(7, dirNumber);
-	                stmt.setString(8, bu.messages.get(objectId));
-	                stmt.setString(9, bu.docsWithNewVersion.get(objectId).keySet().iterator().next());
-	                stmt.setString(10, bu.titles.get(objectId));
-	                stmt.setString(11, bu.buMapWithPlants.get(objectId).toString()); // R4A
-	                stmt.addBatch();
-	            }
-	            
-	            for (Map.Entry<String, String> entry : bu.buMapForDelete.entrySet()) {
-	                String objectId = entry.getKey();
-	                String dirNumber = entry.getValue();
-//	                System.out.println("Getting the plant for buMapForDeleteWithPlants: " + bu.buMapForDeleteWithPlants.get(objectId).toString());
-	                
-	                stmt.setString(1, objectId);
-	                stmt.setString(2, bu.buName);
-	                stmt.setString(3, null);
-	                stmt.setInt(4, bu.batchNo);
-	                stmt.setString(5, Constants.process);
-	                stmt.setString(6, Constants.delete);
-	                stmt.setString(7, dirNumber);
-	                stmt.setString(8, null);
-	                stmt.setString(9, null);
-	                stmt.setString(10, null);
-	                stmt.setString(11, bu.buMapForDeleteWithPlants.get(objectId).toString());
-	                stmt.addBatch();
-	            }
-	            stmt.executeBatch();
-	            bu.conn.commit();
-	            bu.conn.setAutoCommit(true);
-	            }catch(Exception e) {
-	            	e.printStackTrace();
-	            }
-		
+            for (String entry : bu.buMapForUpdate.keySet()) {
+            	String objectId = entry;
+                String boIds = bu.buMapForUpdate.get(entry).toString();
+                String dirNumber = bu.docsWithDir.get(entry);
+                DIRBulkUpdate.logger.debug("{}:{} [PROCESS] UPDATE objectId={} boIds={} dirNumber={}", bu.buName, Thread.currentThread().getName(), objectId, boIds, dirNumber);
+                DIRBulkUpdate.logger.debug("{}:{} [PROCESS] UPDATE plant={}", bu.buName, Thread.currentThread().getName(), bu.buMapWithPlants.get(objectId));
+
+                stmt.setString(1, objectId);
+                stmt.setString(2, bu.buName);
+                stmt.setString(3, boIds);
+                stmt.setInt(4, bu.batchNo);
+                stmt.setString(5, Constants.process);
+                stmt.setString(6, Constants.update);
+                stmt.setString(7, dirNumber);
+                stmt.setString(8, bu.messages.get(objectId));
+                stmt.setString(9, bu.docsWithNewVersion.get(objectId).keySet().iterator().next());
+                stmt.setString(10, bu.titles.get(objectId));
+	            stmt.setString(11, bu.buMapWithPlants.get(objectId).toString()); // R4A
+                stmt.addBatch();
+            }
+
+            for (Map.Entry<String, String> entry : bu.buMapForDelete.entrySet()) {
+                String objectId = entry.getKey();
+                String dirNumber = entry.getValue();
+                DIRBulkUpdate.logger.debug("{}:{} [PROCESS] DELETE objectId={} plant={}", bu.buName, Thread.currentThread().getName(), objectId, bu.buMapForDeleteWithPlants.get(objectId));
+
+                stmt.setString(1, objectId);
+                stmt.setString(2, bu.buName);
+                stmt.setString(3, null);
+                stmt.setInt(4, bu.batchNo);
+                stmt.setString(5, Constants.process);
+                stmt.setString(6, Constants.delete);
+                stmt.setString(7, dirNumber);
+                stmt.setString(8, null);
+                stmt.setString(9, null);
+                stmt.setString(10, null);
+                stmt.setString(11, bu.buMapForDeleteWithPlants.get(objectId).toString());
+                stmt.addBatch();
+            }
+            stmt.executeBatch();
+            bu.conn.commit();
+            bu.conn.setAutoCommit(true);
+        } catch (Exception e) {
+        	DIRBulkUpdate.logger.error("{}:{} [PROCESS] Error populating processing table", bu.buName, Thread.currentThread().getName(), e);
+        }
 	}
 
 	public static void findDeltas(BUProperties bu) {
 		List<String> keys = new ArrayList<String>();
-		//Check for DIR number
 		try {
-			
-			String objectIds = bu.buMap.keySet().stream().map(key->"'"+key+"'").collect(Collectors.joining(","));
-			if(!objectIds.equals("")) {
-				PreparedStatement dirStmt = bu.conn.prepareStatement(String.format(bu.dirQuery,bu.processingTable,objectIds,bu.buName));
-				System.out.println(dirStmt.toString());
+			String objectIds = bu.buMap.keySet().stream().map(key -> "'" + key + "'").collect(Collectors.joining(","));
+			if (!objectIds.equals("")) {
+				PreparedStatement dirStmt = bu.conn.prepareStatement(String.format(bu.dirQuery, bu.processingTable, objectIds, bu.buName));
+				DIRBulkUpdate.logger.debug("{}:{} [DELTA] dirQuery: {}", bu.buName, Thread.currentThread().getName(), dirStmt.toString());
 				ResultSet dirRs = dirStmt.executeQuery();
-				
-				while(dirRs.next()) {
-					if(!(dirRs.getString(Constants.dbDirNumberCol)==null || dirRs.getString(Constants.dbDirNumberCol).equals(""))) {
+				while (dirRs.next()) {
+					if (!(dirRs.getString(Constants.dbDirNumberCol) == null || dirRs.getString(Constants.dbDirNumberCol).equals(""))) {
 						bu.docsWithDir.put(dirRs.getString(Constants.d2ChronicleId), dirRs.getString(Constants.dbDirNumberCol));
-					}else {
-						System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": "+dirRs.getString(Constants.d2ChronicleId)+": No existing DIR");
-						DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": "+dirRs.getString(Constants.d2ChronicleId)+": No existing DIR");
-					}	
+					} else {
+						DIRBulkUpdate.logger.debug("{}:{} [DELTA] {}: No existing DIR", bu.buName, Thread.currentThread().getName(), dirRs.getString(Constants.d2ChronicleId));
+					}
 				}
 			}
-			
-		}catch(Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-			e.printStackTrace();
+		} catch (Exception e) {
+			DIRBulkUpdate.logger.error("{}:{} [DELTA] Error querying DIR numbers", bu.buName, Thread.currentThread().getName(), e);
 		}
-		
+
 		for (String entry : bu.buMap.keySet()) {
 			String objectId = entry;
-			//fetch DIR number from DB
-			if(bu.docsWithDir.containsKey(objectId)) {
-				
-				Boolean result = false; 
+			if (bu.docsWithDir.containsKey(objectId)) {
+				Boolean result = false;
 				try (PreparedStatement queryStmt = bu.conn.prepareStatement(bu.compareQuery)) {
-
                     for (int i = 1; i <= 6; i++) {
                         if (i % 3 == 0) {
                             queryStmt.setString(i, bu.buName);
                         } else {
                             queryStmt.setString(i, objectId);
                         }
-
                     }
                     ResultSet queryRs = queryStmt.executeQuery();
                     queryRs.next();
-                    result = queryRs.getBoolean(1); 
-                                              
-				}catch(Exception e) {
-					System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-					DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-					e.printStackTrace();
+                    result = queryRs.getBoolean(1);
+				} catch (Exception e) {
+					DIRBulkUpdate.logger.error("{}:{} [DELTA] Error in compare query for objectId={}", bu.buName, Thread.currentThread().getName(), objectId, e);
 				}
-				if(result) {  
+				if (result) {
 					String boIdsOld = null;
 					String boIdsNew = null;
 					try (PreparedStatement oldDocStmt = bu.conn.prepareStatement(bu.selectOldTagsSql);
 							PreparedStatement newDocStmt = bu.conn.prepareStatement(bu.selectNewTagsSql)) {
-			            
 			            oldDocStmt.setString(1, objectId);
 			            oldDocStmt.setString(2, bu.buName);
 			            ResultSet rsOld = oldDocStmt.executeQuery();
-			            while(rsOld.next()) {
+			            while (rsOld.next()) {
 			            	boIdsOld = rsOld.getString(Constants.dbTags);
-			            } 
+			            }
 			            newDocStmt.setString(1, objectId);
 			            newDocStmt.setString(2, bu.buName);
 			            ResultSet rsNew = newDocStmt.executeQuery();
-			            while(rsNew.next()) {
+			            while (rsNew.next()) {
 			            	boIdsNew = rsNew.getString(Constants.dbTags);
 			            }
-			            
-			            if(boIdsOld == null || boIdsOld.equals("")) {
+			            if (boIdsOld == null || boIdsOld.equals("")) {
 			            	continue;
 			            }
 			            JSONObject boIdsOldJson = new JSONObject(boIdsOld);
 			            JSONObject boIdsJson = new JSONObject(boIdsNew);
 			            String[] inputAttrs = ("EQUI,FLOC,TLST,IPLN,WRDR").split(",");
 			            Map<String, String> boIdMap = new HashMap<>();
-			            for(int i=0;i<inputAttrs.length;i++){
-			            	
+			            for (int i = 0; i < inputAttrs.length; i++) {
 			            	String newIds = "";
 			            	String oldIds = "";
-			            	String addToDir="";
-			            	String removeFromDir="";
-			            	if(boIdsJson.has(inputAttrs[i])) {
+			            	String addToDir = "";
+			            	String removeFromDir = "";
+			            	if (boIdsJson.has(inputAttrs[i])) {
 			            		newIds = boIdsJson.get(inputAttrs[i]).toString();
 			            	}
-			            	if(boIdsOldJson.has(inputAttrs[i])) {
+			            	if (boIdsOldJson.has(inputAttrs[i])) {
 			            		oldIds = boIdsOldJson.get(inputAttrs[i]).toString();
 			            	}
-			            	if(!(oldIds.equals("") && newIds.equals(""))) {
-			            		if(oldIds.equals("") || newIds.equals("")) {
+			            	if (!(oldIds.equals("") && newIds.equals(""))) {
+			            		if (oldIds.equals("") || newIds.equals("")) {
 			            			addToDir = newIds;
 			            			removeFromDir = oldIds;
-			            		}else {
-			            			List <String> newIdList = new ArrayList<String>(Arrays.asList(newIds.split(",")));
-			            			List <String> newIdListTemp = new ArrayList<String>(Arrays.asList(newIds.split(",")));
-			            			List <String> oldIdList = new ArrayList<String>(Arrays.asList(oldIds.split(",")));
+			            		} else {
+			            			List<String> newIdList = new ArrayList<String>(Arrays.asList(newIds.split(",")));
+			            			List<String> newIdListTemp = new ArrayList<String>(Arrays.asList(newIds.split(",")));
+			            			List<String> oldIdList = new ArrayList<String>(Arrays.asList(oldIds.split(",")));
 			            			newIdList.removeAll(oldIdList);
 			            			oldIdList.removeAll(newIdListTemp);
-			            			addToDir = String.join(",",newIdList); // Tags to add to DIR
-			            			removeFromDir = String.join(",",oldIdList); // Tags to remove from DIR	 
+			            			addToDir = String.join(",", newIdList);
+			            			removeFromDir = String.join(",", oldIdList);
 			            		}
-			            		if(!addToDir.equals("")) {
-			            			boIdMap.put(inputAttrs[i]+"_create",addToDir);
+			            		if (!addToDir.equals("")) {
+			            			boIdMap.put(inputAttrs[i] + "_create", addToDir);
 			            		}
-			            		if(!removeFromDir.equals("")) {
-			            			boIdMap.put(inputAttrs[i]+"_remove",removeFromDir);
+			            		if (!removeFromDir.equals("")) {
+			            			boIdMap.put(inputAttrs[i] + "_remove", removeFromDir);
 			            		}
-			            	}	
+			            	}
 			            	bu.buMapForUpdate.put(objectId, boIdMap);
 			            	keys.add(objectId);
 			            }
 					} catch (Exception e) {
-						System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-						DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-						e.printStackTrace();
+						DIRBulkUpdate.logger.error("{}:{} [DELTA] Error comparing tags for objectId={}", bu.buName, Thread.currentThread().getName(), objectId, e);
 						keys.add(objectId);
 					}
-				}else {
+				} else {
 					keys.add(objectId);
 					bu.messages.remove(objectId);
 				}
 			}
 		}
-		
-			for (String entry : keys) {
-				if(bu.buMap.has(entry)) {
-					bu.buMap.remove(entry);
-				}
-			
+
+		for (String entry : keys) {
+			if (bu.buMap.has(entry)) {
+				bu.buMap.remove(entry);
+			}
 		}
-		
-		
-		
 	}
 
 	public static void fetchDocuments(BUProperties bu) {
-		//Integer dbBatch = bu.batchNo - 8;
-		String sql = String.format(DIRBulkUpdate.prop.getProperty("selectUpdatedDocumentsSql"),bu.processingTable118,Constants.completedStatus,bu.buName);//, dbBatch); 
+		String sql = String.format(DIRBulkUpdate.prop.getProperty("selectUpdatedDocumentsSql"), bu.processingTable118, Constants.completedStatus, bu.buName);
 		try (PreparedStatement docStmt = bu.conn.prepareStatement(sql);
 			ResultSet rs = docStmt.executeQuery()) {
 			String documents = "";
-			while(rs.next()) {
+			while (rs.next()) {
 				String rObjId = rs.getString(Constants.dbDocId);
-                DocumentumFunctions.executeRelatedTags(bu,rObjId);
-				documents = documents+",'"+rs.getString(Constants.dbDocId)+"'";	               
+                DocumentumFunctions.executeRelatedTags(bu, rObjId);
+				documents = documents + ",'" + rs.getString(Constants.dbDocId) + "'";
 			}
-			if(!documents.equals("")) {
+			if (!documents.equals("")) {
 				documents = documents.substring(1);
-				DocumentumFunctions.finaliseCutoverInput(documents,bu);
-			}else {
-				System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": No documents to process");
+				DocumentumFunctions.finaliseCutoverInput(documents, bu);
+			} else {
+				DIRBulkUpdate.logger.warn("{}:{} [FETCH] No documents to process", bu.buName, Thread.currentThread().getName());
 			}
-			
-            	
 		} catch (SQLException e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
+			DIRBulkUpdate.logger.error("{}:{} [FETCH] Error fetching documents", bu.buName, Thread.currentThread().getName(), e);
 		}
-		
 	}
 
 	public static void processDirs(BUProperties bu) {
-
-		ExecutorService esSap = Executors.newFixedThreadPool(5);//Integer.valueOf(DIRBulkUpdate.prop.getProperty("threadCountforBapis")));
-        System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Calling BAPIs");
-		DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Calling BAPIs");
-		System.out.println("Fetching token");
-		DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Fetching token");
-        String sql = getAuthToken(bu);        
-        // Executing the tasks
-		sql = String.format(DIRBulkUpdate.prop.getProperty("selectDocumentsForBapiSql"),bu.processingTable,"readytoprocess",bu.buName); 
-		try (PreparedStatement docStmt = bu.conn.prepareStatement(sql,ResultSet.TYPE_SCROLL_INSENSITIVE,ResultSet.CONCUR_UPDATABLE);
+		ExecutorService esSap = Executors.newFixedThreadPool(5);
+		DIRBulkUpdate.logger.info("{}:{} [BAPI] Calling BAPIs", bu.buName, Thread.currentThread().getName());
+		DIRBulkUpdate.logger.info("{}:{} [BAPI] Fetching auth token", bu.buName, Thread.currentThread().getName());
+        String sql = getAuthToken(bu);
+        sql = String.format(DIRBulkUpdate.prop.getProperty("selectDocumentsForBapiSql"), bu.processingTable, "readytoprocess", bu.buName);
+		try (PreparedStatement docStmt = bu.conn.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE);
 			 ResultSet rs = docStmt.executeQuery()) {
-			if (!rs.isBeforeFirst() ) {
+			if (!rs.isBeforeFirst()) {
 				DatabaseFunctions.updateDbError(bu, "NA", "No documents to process. ", Constants.completedStatus, null, "NA", null);
-			}else {
+			} else {
 				rs.last();
 		        CountDownLatch sapLatch = new CountDownLatch(rs.getRow());
 		        rs.beforeFirst();
-				while(rs.next()) {
+				while (rs.next()) {
 				    String modString = rs.getString(Constants.dbTags);
 				    String operation = rs.getString(Constants.dbOperationCol);
-				    if(operation.equals(Constants.delete)) {
-				    	modString="{}";
+				    if (operation.equals(Constants.delete)) {
+				    	modString = "{}";
 				    }
-				    JSONObject boIdsJson = new JSONObject(modString);//new JSONObject(modString);
-					
+				    JSONObject boIdsJson = new JSONObject(modString);
 					String r_object_id = rs.getString(Constants.d2ChronicleId);
-					String flocLabels ="";
-					if(boIdsJson.has("FLOC_create")) {
+					String flocLabels = "";
+					if (boIdsJson.has("FLOC_create")) {
 						String[] flocIds = boIdsJson.get("FLOC_create").toString().split(",");
-						for(String floc:flocIds) {
-							if(!bu.flocLabelToAlternate.containsKey(floc)) {
-								flocLabels = flocLabels+",'"+floc+"'";
-							}	
+						for (String floc : flocIds) {
+							if (!bu.flocLabelToAlternate.containsKey(floc)) {
+								flocLabels = flocLabels + ",'" + floc + "'";
+							}
 						}
 					}
-					if(boIdsJson.has("FLOC_remove")) {
+					if (boIdsJson.has("FLOC_remove")) {
 						String[] flocIds = boIdsJson.get("FLOC_remove").toString().split(",");
-						for(String floc:flocIds) {
-							if(!bu.flocLabelToAlternate.containsKey(floc)) {
-								flocLabels = flocLabels+",'"+floc+"'";
-							}	
+						for (String floc : flocIds) {
+							if (!bu.flocLabelToAlternate.containsKey(floc)) {
+								flocLabels = flocLabels + ",'" + floc + "'";
+							}
 						}
 					}
-					if(!flocLabels.equals("")) {
+					if (!flocLabels.equals("")) {
 			        	flocLabels = flocLabels.substring(1);
-			        	if(!flocLabels.equals("")) {
-			        		DatabaseFunctions.getAlternateLabelsFromDb(flocLabels,bu);  
+			        	if (!flocLabels.equals("")) {
+			        		DatabaseFunctions.getAlternateLabelsFromDb(flocLabels, bu);
 			        	}
 			        }
 					Integer sno = rs.getInt(Constants.dbSnoCol);
 					String dirNumber = rs.getString(Constants.dbDirNumberCol);
 					String planningPlant = rs.getString(Constants.dbPlant); // R4A
 					String title = rs.getString(Constants.d2TitleField); // R4A
-					esSap.execute(new SAPOperations(boIdsJson,r_object_id,operation, bu,sno, sapLatch, dirNumber, planningPlant, title)); // R4A
+					esSap.execute(new SAPOperations(boIdsJson, r_object_id, operation, bu, sno, sapLatch, dirNumber, planningPlant, title));// R4A
 				}
 				sapLatch.await();
 			}
-			       
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": No records left to process");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": No records left to process");
-        // Making all current executing threads to terminate
+			DIRBulkUpdate.logger.info("{}:{} [BAPI] No records left to process", bu.buName, Thread.currentThread().getName());
             esSap.shutdown();
-		}catch(Exception e) {
-			System.out.println("Error from processDIRS(): " + e);
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());;
-			
+		} catch (Exception e) {
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] Error in processDirs", bu.buName, Thread.currentThread().getName(), e);
 		}
-		
 	}
+
 	public static void updateDbPostBapi(BUProperties bu, Integer sno, String message, String status, String dirNumber) {
-		
 		try {
-			
 			PreparedStatement stmt = bu.conn.prepareStatement(bu.processingDbUpdateSql);
 			stmt.setString(1, status);
 			stmt.setString(2, message);
@@ -463,15 +390,12 @@ public class DatabaseFunctions {
 			stmt.setInt(4, sno);
 			stmt.execute();
 		} catch (Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-		}	
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] Error updating DB post-BAPI sno={}", bu.buName, Thread.currentThread().getName(), sno, e);
+		}
 	}
-	
+
 	public static void updateDbError(BUProperties bu, String r_object_id, String message, String status, String boIds, String operation, String dirNumber) {
-		
 		try {
-			
 			PreparedStatement stmt = bu.conn.prepareStatement(bu.processingDbInsertStmt);
 			stmt.setString(1, r_object_id);
             stmt.setString(2, bu.buName);
@@ -487,123 +411,101 @@ public class DatabaseFunctions {
             
 			stmt.execute();
 		} catch (Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-		}	
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] Error inserting error row objectId={}", bu.buName, Thread.currentThread().getName(), r_object_id, e);
+		}
 	}
-	
+
 	public static void updateDeletedDocRows(BUProperties bu) {
 		try {
-			String updateDelSql = String.format(bu.megaDeleteSelectSql,bu.processingTable,Constants.delete,bu.buName, Constants.completedStatus); 
-			System.out.println(updateDelSql);
+			String updateDelSql = String.format(bu.megaDeleteSelectSql, bu.processingTable, Constants.delete, bu.buName, Constants.completedStatus);
+			DIRBulkUpdate.logger.debug("{}:{} [CLEANUP] updateDeletedDocRows SQL: {}", bu.buName, Thread.currentThread().getName(), updateDelSql);
 			PreparedStatement docStmt = bu.conn.prepareStatement(updateDelSql);
 			ResultSet rs = docStmt.executeQuery();
-			String chronicleIds="";
-			if(rs.isBeforeFirst()) {
-				while(rs.next()) {
-					chronicleIds = chronicleIds+",'"+rs.getString(Constants.d2ChronicleId)+"'";
+			String chronicleIds = "";
+			if (rs.isBeforeFirst()) {
+				while (rs.next()) {
+					chronicleIds = chronicleIds + ",'" + rs.getString(Constants.d2ChronicleId) + "'";
 				}
 				chronicleIds = chronicleIds.substring(1);
-				PreparedStatement stmt = bu.conn.prepareStatement(String.format(bu.megaDeleteUpdateSql,bu.processingTable,"DELETED",chronicleIds,bu.buName));
-				System.out.println(stmt);
+				PreparedStatement stmt = bu.conn.prepareStatement(String.format(bu.megaDeleteUpdateSql, bu.processingTable, "DELETED", chronicleIds, bu.buName));
+				DIRBulkUpdate.logger.debug("{}:{} [CLEANUP] megaDeleteUpdate SQL: {}", bu.buName, Thread.currentThread().getName(), stmt);
 				stmt.execute();
-				System.out.println("Deleted DIR records updated");
+				DIRBulkUpdate.logger.info("{}:{} [CLEANUP] Deleted DIR records updated", bu.buName, Thread.currentThread().getName());
 			}
-		} 
-		catch (Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :"+e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :"+e.getMessage());
-         
-		 
-		} 
-		
-	}
-	public static void cleanUpStagingTable(Connection conn,String selectSql,String processingTable, String buName, Integer batchNo, String deleteSql, String stagingTable) {
-			try {
-				String selectErrorSql = String.format(selectSql,processingTable,buName, batchNo); 
-				System.out.println(selectErrorSql);
-				PreparedStatement docStmt = conn.prepareStatement(selectErrorSql);
-				ResultSet rs = docStmt.executeQuery();
-				String chronicleIds="";
-				if(rs.isBeforeFirst()) {
-					while(rs.next()) {
-						if(!rs.getString(Constants.d2ChronicleId).equals("NA")) {
-							chronicleIds = chronicleIds+",'"+rs.getString(Constants.d2ChronicleId)+"'";
-						}
-						
-					}
-					chronicleIds = chronicleIds.substring(1);
-					PreparedStatement stmt = conn.prepareStatement(String.format(deleteSql,stagingTable,buName,batchNo,chronicleIds));
-					System.out.println(stmt);
-					stmt.execute();
-					System.out.println("Error staging records updated");
-				}
-			} 
-			catch (Exception e) {
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Error :"+e.getMessage());
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Error :"+e.getMessage());
-	         
-			 
-			} 
-			
+		} catch (Exception e) {
+			DIRBulkUpdate.logger.error("{}:{} [CLEANUP] Error updating deleted doc rows", bu.buName, Thread.currentThread().getName(), e);
 		}
+	}
+
+	public static void cleanUpStagingTable(Connection conn, String selectSql, String processingTable, String buName, Integer batchNo, String deleteSql, String stagingTable) {
+		try {
+			String selectErrorSql = String.format(selectSql, processingTable, buName, batchNo);
+			DIRBulkUpdate.logger.debug("{}:{} [CLEANUP] cleanUpStagingTable SQL: {}", buName, Thread.currentThread().getName(), selectErrorSql);
+			PreparedStatement docStmt = conn.prepareStatement(selectErrorSql);
+			ResultSet rs = docStmt.executeQuery();
+			String chronicleIds = "";
+			if (rs.isBeforeFirst()) {
+				while (rs.next()) {
+					if (!rs.getString(Constants.d2ChronicleId).equals("NA")) {
+						chronicleIds = chronicleIds + ",'" + rs.getString(Constants.d2ChronicleId) + "'";
+					}
+				}
+				chronicleIds = chronicleIds.substring(1);
+				PreparedStatement stmt = conn.prepareStatement(String.format(deleteSql, stagingTable, buName, batchNo, chronicleIds));
+				DIRBulkUpdate.logger.debug("{}:{} [CLEANUP] cleanStagingDelete SQL: {}", buName, Thread.currentThread().getName(), stmt);
+				stmt.execute();
+				DIRBulkUpdate.logger.info("{}:{} [CLEANUP] Error staging records cleaned up", buName, Thread.currentThread().getName());
+			}
+		} catch (Exception e) {
+			DIRBulkUpdate.logger.error("{}:{} [CLEANUP] Error cleaning staging table", buName, Thread.currentThread().getName(), e);
+		}
+	}
 
 	public static void getAlternateLabelsFromDb(String flocLabels, BUProperties bu) {
-		String flocSql = String.format(bu.flocSql,bu.flocTable, flocLabels, bu.buName);
-        
-        System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": "+flocSql);
-        
-		
+		String flocSql = String.format(bu.flocSql, bu.flocTable, flocLabels, bu.buName);
+		DIRBulkUpdate.logger.debug("{}:{} [FLOC] getAlternateLabelsFromDb SQL: {}", bu.buName, Thread.currentThread().getName(), flocSql);
 		try {
 			PreparedStatement flocQuery = bu.conn.prepareStatement(flocSql);
 			ResultSet rs = flocQuery.executeQuery();
 			if (rs == null) {
-                System.err.println("There are no alternate labels in " + bu.buName + " DB for "+flocLabels);
-                DIRBulkUpdate.logger.info("There are no alternate labels in " + bu.buName + " DB for "+flocLabels);
-            }else {
-            	while(rs.next()) {                			
-                	bu.flocLabelToAlternate.put(rs.getString(Constants.dbLabel), rs.getString(Constants.dbAlternateLabel));	
+                DIRBulkUpdate.logger.warn("{}:{} [FLOC] No alternate labels in DB for {}", bu.buName, Thread.currentThread().getName(), flocLabels);
+            } else {
+            	while (rs.next()) {
+                	bu.flocLabelToAlternate.put(rs.getString(Constants.dbLabel), rs.getString(Constants.dbAlternateLabel));
             	}
             }
 		} catch (Exception e) {
-			System.err.println("Error while fetching alternate labels from " + bu.buName + " DB for "+flocLabels);
-            DIRBulkUpdate.logger.info("Error while fetching labels from " + bu.buName + " DB for "+flocLabels);
+			DIRBulkUpdate.logger.warn("{}:{} [FLOC] Error fetching alternate labels from DB for {}", bu.buName, Thread.currentThread().getName(), flocLabels, e);
 		}
-		
 	}
-	
-	public static synchronized String getAuthToken(BUProperties bu){
+
+	public static synchronized String getAuthToken(BUProperties bu) {
 		try {
-				//String body1 = "grant_type=password&client_id=10e45a21-dae8-4db9-b443-9e372adf13af&client_secret=6V48Q~XVxbopWxfYSpwJIEhIAEP9HKTE4MT2FaW1&resource=b03f66a5-0b23-4981-8e38-fef20db32755&username=R_ECMADMIN_APIM_SVC@chevron.onmicrosoft.com&password=TFb^EejiM(6(3^P0";
-				String encodedPassword = URLEncoder.encode(bu.apimPassword, StandardCharsets.UTF_8.toString()); // R4A				
-				String body = String.format(Constants.authTokenCallPayload,bu.clientId, bu.clientSecret, bu.resource, bu.apimUsername, encodedPassword);
+				String encodedPassword = URLEncoder.encode(bu.apimPassword, StandardCharsets.UTF_8.toString()); // R4A
+				String body = String.format(Constants.authTokenCallPayload, bu.clientId, bu.clientSecret, bu.resource, bu.apimUsername, encodedPassword);
 				HttpRequest request = (HttpRequest) HttpRequest.newBuilder()
 						.uri(URI.create(bu.authEndpoint))
 						.header("Content-Type", "application/x-www-form-urlencoded")
-						.method("GET",HttpRequest.BodyPublishers.ofString(body)).build();
-				
+						.method("GET", HttpRequest.BodyPublishers.ofString(body)).build();
 				HttpResponse<String> response = bu.clientAuth.send(request, HttpResponse.BodyHandlers.ofString());
 				JSONObject res = new JSONObject(response.body());
 				bu.authToken = res;
+				DIRBulkUpdate.logger.info("{}:{} [BAPI] Auth token acquired", bu.buName, Thread.currentThread().getName());
 				return res.getString("access_token");
 			} catch (Exception e) {
 				//R4A
 			    if (bu.authTokenFlag.compareAndSet(false, true)) {
-			    	DatabaseFunctions.updateDbError(bu, "NA", "Could not fetch Auth Token", Constants.errorStatus, null, "NA",null);
+			    	DatabaseFunctions.updateDbError(bu, "NA", "Could not fetch Auth Token", Constants.errorStatus, null, "NA", null);
 			        DatabaseFunctions.updateProcessToError(bu); // R4A
 			    }
 				JSONObject authError = new JSONObject();
 				authError.put("expires_in", "1");
-				bu.authToken=authError;
-				DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
+				bu.authToken = authError;
+				DIRBulkUpdate.logger.error("{}:{} [BAPI] Could not fetch auth token", bu.buName, Thread.currentThread().getName(), e);
 				return "";
 			}
 		}
-	
-	
-	
-	
-	
+
 	/*
 	 * R4A - For updating the readytoprocess entries to ERROR in case of token error for the current processing batch
 	 */
@@ -617,13 +519,7 @@ public class DatabaseFunctions {
 			stmt.setString(5, bu.buName);
 			stmt.execute();
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error: "+e.getMessage());
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] Error updating processing table to error status", bu.buName, Thread.currentThread().getName(), e);
 		}
 	}
-	
-	
-		
-
 }

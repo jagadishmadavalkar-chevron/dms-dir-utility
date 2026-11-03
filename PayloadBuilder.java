@@ -5,27 +5,28 @@ import org.json.JSONObject;
 
 public class PayloadBuilder {
 	protected static String buildPayload(JSONObject boIdsJson, String r_object_id, BUProperties bu, String title) {
-		String root="";
+		String root = "";
 		JSONObject table1 = new JSONObject();
 		String documentTitle = (bu.titles.get(r_object_id) != null && !bu.titles.get(r_object_id).trim().isEmpty()) ? bu.titles.get(r_object_id) : title; // R4A
-		root=root+"{\""+Constants.sapCharacteristicValuesTable+"\":"+ buildCharacteristicValues(bu).toString()+",";
-		root=root+"\""+Constants.sapClassAllocationsTable+"\":"+ buildClassAllocations(bu).toString()+",";
-		root=root+"\""+Constants.sapDocumentDataTable+"\":"+ buildDocumentData("*",bu, documentTitle).toString()+",";
+		root = root + "{\"" + Constants.sapCharacteristicValuesTable + "\":" + buildCharacteristicValues(bu).toString() + ",";
+		root = root + "\"" + Constants.sapClassAllocationsTable + "\":" + buildClassAllocations(bu).toString() + ",";
+		root = root + "\"" + Constants.sapDocumentDataTable + "\":" + buildDocumentData("*", bu, documentTitle).toString() + ",";
 		table1.put("item", buildDocumentFiles(r_object_id, bu, documentTitle)); // R4A
-		root=root+"\""+Constants.sapDocumentFilesTable+"\":"+table1.toString()+",";
-		root=root+"\""+Constants.sapObjectLinksTable+"\":"+ buildObjectLinks(boIdsJson,bu)+"}";
+		root = root + "\"" + Constants.sapDocumentFilesTable + "\":" + table1.toString() + ",";
+		root = root + "\"" + Constants.sapObjectLinksTable + "\":" + buildObjectLinks(boIdsJson, bu) + "}";
 		return root.toString();
 	}
-	public static String buildUpdatePayload(JSONObject boIdsJson, String r_object_id, BUProperties bu, String dirNumber) {
-		String root="";
-		root=root+"{\""+Constants.sapDocTypeField+"\":\""+bu.docType+"\",";
-		root=root+"\""+Constants.sapDocNumberField+"\":\""+dirNumber+"\",";
-		root=root+"\""+Constants.sapDocVersionField+"\":\""+bu.docVersion+"\",";
-		root=root+"\""+Constants.sapDocPartField+"\":\""+bu.docPart+"\",";
-		root=root+"\""+Constants.sapObjectLinksTable+"\":"+ buildObjectLinks(boIdsJson,bu)+"}";
-		return root.toString();
 
+	public static String buildUpdatePayload(JSONObject boIdsJson, String r_object_id, BUProperties bu, String dirNumber) {
+		String root = "";
+		root = root + "{\"" + Constants.sapDocTypeField + "\":\"" + bu.docType + "\",";
+		root = root + "\"" + Constants.sapDocNumberField + "\":\"" + dirNumber + "\",";
+		root = root + "\"" + Constants.sapDocVersionField + "\":\"" + bu.docVersion + "\",";
+		root = root + "\"" + Constants.sapDocPartField + "\":\"" + bu.docPart + "\",";
+		root = root + "\"" + Constants.sapObjectLinksTable + "\":" + buildObjectLinks(boIdsJson, bu) + "}";
+		return root.toString();
 	}
+
 	private static JSONObject buildCharacteristicValues(BUProperties bu) {
 		JSONObject table = new JSONObject();
 		JSONArray items = new JSONArray();
@@ -37,6 +38,7 @@ public class PayloadBuilder {
 		table.put("item", item);
 		return table;
 	}
+
 	private static JSONObject buildClassAllocations(BUProperties bu) {
 		JSONObject table = new JSONObject();
 		JSONArray items = new JSONArray();
@@ -47,6 +49,7 @@ public class PayloadBuilder {
 		table.put("item", item);
 		return table;
 	}
+
 	private static JSONArray buildDocumentData(String dirNumber, BUProperties bu, String title) {
 		JSONArray items = new JSONArray();
 		JSONObject item = new JSONObject();
@@ -58,76 +61,70 @@ public class PayloadBuilder {
 		items.put(item);
 		return items;
 	}
+
 	private static JSONArray buildDocumentFiles(String r_object_id, BUProperties bu, String title) {
-		//JSONObject table = new JSONObject();
 		JSONArray items = new JSONArray();
 		JSONObject item = new JSONObject();
-		item.put(Constants.sapStorageCategoryField, DIRBulkUpdate.prop.getProperty(bu.buName+"-storageCategory"));
+		item.put(Constants.sapStorageCategoryField, DIRBulkUpdate.prop.getProperty(bu.buName + "-storageCategory"));
 		item.put(Constants.sapWSApplicationField, bu.wsApplication);
-		item.put(Constants.sapDocFileField, String.format(bu.docFile,bu.docBase,bu.docBase,r_object_id));
+		item.put(Constants.sapDocFileField, String.format(bu.docFile, bu.docBase, bu.docBase, r_object_id));
 		item.put(Constants.sapDescriptionField, title); // R4A
 		items.put(item);
-		//table.put("item", item);
 		return items;
 	}
+
 	private static String buildObjectLinks(JSONObject boIdsJson, BUProperties bu) {
 		String table = null;
-		for(String key : boIdsJson.keySet() ) {
+		for (String key : boIdsJson.keySet()) {
 			boolean delete = false;
-			String keyJson=key;
-			if(key.contains("_")) {
-				
-				if(key.contains("remove")) {
+			String keyJson = key;
+			if (key.contains("_")) {
+				if (key.contains("remove")) {
 					delete = true;
 				}
 				key = key.split("_")[0];
 			}
-			
-			if(boIdsJson.getString(keyJson).equals(Constants.na) || boIdsJson.getString(keyJson).equals("0-Not Available")) {
-				//System.out.println("Skipping NA");
-			}else {
+
+			if (boIdsJson.getString(keyJson).equals(Constants.na) || boIdsJson.getString(keyJson).equals("0-Not Available")) {
+				// skip NA/unavailable entries
+			} else {
 				String[] ids = boIdsJson.getString(keyJson).split(",");
-				for(String id : ids) {
-					//System.out.println("id: "+key);
+				for (String id : ids) {
 					JSONArray items = new JSONArray();
 					JSONObject item = new JSONObject();
-					if(delete) {
-						//System.out.println("Here");
+					if (delete) {
 						item.put("DELETEVALUE", "X");
 						item.put(Constants.sapObjectTypeField, Constants.objIndex.get(key));
-						item.put(Constants.sapObjectKeyField, getSAPId(id,key,bu));
-						
-					}else {
+						item.put(Constants.sapObjectKeyField, getSAPId(id, key, bu));
+					} else {
 						item.put(Constants.sapObjectTypeField, Constants.objIndex.get(key));
-						item.put(Constants.sapObjectKeyField, getSAPId(id,key,bu));
+						item.put(Constants.sapObjectKeyField, getSAPId(id, key, bu));
 					}
-					//System.out.println("Item:" +item);
-					if(!item.get(Constants.sapObjectKeyField).equals("NA")) {
+					if (!item.get(Constants.sapObjectKeyField).equals("NA")) {
 						items.put(item);
-						//System.out.println(item.toString());
-						table = new StringBuilder(table+",\"item\":"+items.toString()).toString();
+						table = new StringBuilder(table + ",\"item\":" + items.toString()).toString();
 					}
 				}
 			}
-			
 		}
-		
-		//System.out.println("Table:" +table);
-		table = new StringBuilder("{"+table.substring(5)+"}").toString();
+
+		DIRBulkUpdate.logger.debug("{}:{} [BAPI] OBJECTLINKS built: {}", Thread.currentThread().getName(), Thread.currentThread().getName(), table);
+		table = new StringBuilder("{" + table.substring(5) + "}").toString();
 		return table;
 	}
+
 	private static String getSAPId(String id, String key, BUProperties bu) {
-		if(key.contains(Constants.equi) || key.contains(Constants.tlst) || key.contains(Constants.wrdr)) {
+		if (key.contains(Constants.equi) || key.contains(Constants.tlst) || key.contains(Constants.wrdr)) {
 			return id;
-		}else if(key.contains(Constants.floc)){ 
-			if(bu.flocLabelToAlternate.containsKey(id)) {
+		} else if (key.contains(Constants.floc)) {
+			if (bu.flocLabelToAlternate.containsKey(id)) {
 				return bu.flocLabelToAlternate.get(id);
-			}else {
-				return(id);
+			} else {
+				return (id);
 			}
-		}else {
+		} else {
 			String[] ids = id.split(Constants.d2IplnSplitValue);
-			return ids[ids.length-1];
+			return ids[ids.length - 1];
 		}
 	}
 }

@@ -18,7 +18,7 @@ public class SAPOperations implements Runnable {
 	CountDownLatch sapLatch;
 	String dirNumber;
 	String plant; // R4A
-	String title;
+	String title; // R4A
 
 	// R4A
 	public SAPOperations(JSONObject boIdsJson, String r_object_id, String operation, BUProperties bu, Integer sno,
@@ -31,7 +31,7 @@ public class SAPOperations implements Runnable {
 		this.sapLatch = sapLatch;
 		this.dirNumber = dirNumber;
 		this.plant = planningPlant; // R4A
-		this.title = title;
+		this.title = title; // R4A
 	}
 
 	@Override
@@ -41,7 +41,7 @@ public class SAPOperations implements Runnable {
 			String token;
 			token = checkAuthToken(bu.authToken);
 			if (token.equals("")) {
-				System.out.println("Fetching new token");
+				DIRBulkUpdate.logger.info("{}:{} [BAPI] Fetching new auth token", bu.buName, Thread.currentThread().getName());
 				token = DatabaseFunctions.getAuthToken(bu);
 			}
 
@@ -61,45 +61,34 @@ public class SAPOperations implements Runnable {
 						callUpdateBapi(r_object_id, boIdsJson, dirNumber, client, token, sno, plant); // R4A
 					}
 				} else if (operation.equals("DELETE")) {
-
 					callDeleteBapi(dirNumber, client, token, sno, plant);
-
 				}
 			}
 
 			sapLatch.countDown();
 		} catch (Exception e) {
-			e.printStackTrace();
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] Unexpected error in SAP operation sno={}", bu.buName, Thread.currentThread().getName(), sno, e);
 			DatabaseFunctions.updateDbPostBapi(bu, sno, "Failed to call BAPI", Constants.errorStatus, null);
-			// DatabaseFunctions.updateDbError(bu, r_object_id, null, "readytoprocess",
-			// boIdsJson.toString(), operation,dirNumber);
 		}
-
 	}
 
 	private void callUpdateBapi(String r_object_id, JSONObject boIdsJson, String dirNumber, HttpClient client,
 			String token, Integer sno, String plant) {
-		System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:UPDATE :Object ID: "
-				+ r_object_id + " :Planning Plant: " + plant);
+		DIRBulkUpdate.logger.info("{}:{} [BAPI] UPDATE objectId={} plant={}", bu.buName, Thread.currentThread().getName(), r_object_id, plant);
 
 		try {
 			String payLoad = PayloadBuilder.buildUpdatePayload(boIdsJson, r_object_id, bu, dirNumber);
-//			System.out.println("Update Payload: "+payLoad);
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] UPDATE payload: {}", bu.buName, Thread.currentThread().getName(), payLoad);
+
 			HttpRequest request = (HttpRequest) HttpRequest.newBuilder().uri(URI.create(bu.endpoint))
 					.header("Content-Type", "application/json").header("APIKey", bu.apiKey)
 					.header("Authorization", "Bearer " + token).header("CompanyCode", bu.companyCode)
 					.header("MaintenancePlanningPlant", plant).header("Accept", "application/json")
 					.method("PATCH", HttpRequest.BodyPublishers.ofString(payLoad)).build();
 
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:UPDATE Request: "
-					+ request + "\n" + request.headers());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "Operation:UPDATE Request: "
-					+ request + "\n" + request.headers());
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] UPDATE request → PATCH {} plant={} companyCode={}", bu.buName, Thread.currentThread().getName(), bu.endpoint, plant, bu.companyCode);
 			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:UPDATE Response: "
-					+ response.body() + "\n");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "Operation:UPDATE Response: "
-					+ response.body() + "\n");
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] UPDATE response: {}", bu.buName, Thread.currentThread().getName(), response.body());
 
 			JSONObject res = new JSONObject(response.body());
 
@@ -117,59 +106,42 @@ public class SAPOperations implements Runnable {
 					DocumentumFunctions.addDirNumber(dirNumber, versionId, bu, sno,
 							bu.messages.get(r_object_id) + "DIR successfully updated and Document updated.");
 				}
-
 			} else {
 				DatabaseFunctions.updateDbPostBapi(bu, sno,
 						bu.messages.get(r_object_id) + "Error: " + res.getJSONObject(Constants.updateResponse)
 								.getJSONObject(Constants.ret).getString(Constants.message),
 						Constants.errorStatus, dirNumber);
-				/*
-				 * DatabaseFunctions.updateDbError(bu, r_object_id, null, "readytoprocess",
-				 * boIdsJson.toString(), "UPDATE",dirNumber);
-				 */
 			}
 		} catch (Exception e) {
 			DatabaseFunctions.updateDbPostBapi(bu, sno,
 					bu.messages.get(r_object_id) + "DIR Update Failed. Error: " + e.getMessage(), Constants.errorStatus,
 					dirNumber);
-			/*
-			 * DatabaseFunctions.updateDbError(bu, r_object_id, null, "readytoprocess",
-			 * boIdsJson.toString(), "UPDATE",dirNumber);
-			 */
-			e.printStackTrace();
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] UPDATE failed for objectId={}", bu.buName, Thread.currentThread().getName(), r_object_id, e);
 		}
-
 	}
 
 	private void callCreateBapi(String r_object_id, JSONObject boIdsJson, BUProperties bu, HttpClient client,
 			String token, Integer sno, String plant, String title) { // R4A
+		DIRBulkUpdate.logger.info("{}:{} [BAPI] CREATE objectId={} plant={}", bu.buName, Thread.currentThread().getName(), r_object_id, plant);
 
-		System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:CREATE :Object ID: "
-				+ r_object_id + " :Planning Plant: " + plant);
 		try {
 			String payLoad = PayloadBuilder.buildPayload(boIdsJson, r_object_id, bu, title); // R4A
-//			System.out.println("Create Payload is: "+payLoad);
-			// System.out.println("Token : "+token);
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] CREATE payload: {}", bu.buName, Thread.currentThread().getName(), payLoad);
+
 			HttpRequest request = (HttpRequest) HttpRequest.newBuilder().uri(URI.create(bu.endpoint))
 					.header("Content-Type", "application/json").header("APIKey", bu.apiKey)
 					.header("Authorization", "Bearer " + token).header("CompanyCode", bu.companyCode)
 					.header("MaintenancePlanningPlant", plant).header("Accept", "application/json")
 					.method("POST", HttpRequest.BodyPublishers.ofString(payLoad)).build();
 
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:CREATE Request: "
-					+ request + "\n" + request.headers());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "Operation:CREATE Request: "
-					+ request + "\n" + request.headers());
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] CREATE request → POST {} plant={} companyCode={}", bu.buName, Thread.currentThread().getName(), bu.endpoint, plant, bu.companyCode);
 			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:CREATE Response: "
-					+ response.body() + "\n");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "Operation:CREATE Response: "
-					+ response.body() + "\n");
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] CREATE response: {}", bu.buName, Thread.currentThread().getName(), response.body());
+
 			JSONObject res = new JSONObject(response.body());
 
 			// R4A
 			if (res.has("error")) {
-
 				JSONObject error = res.getJSONObject("error");
 				String code = error.optString("code", "");
 				String message = error.getJSONObject("message").optString("value", "");
@@ -177,21 +149,17 @@ public class SAPOperations implements Runnable {
 
 				if (error.has("innererror")) {
 					JSONObject inner = error.getJSONObject("innererror");
-
 					if (inner.has("errordetails")) {
 						innerMsg = inner.getJSONArray("errordetails").optJSONObject(0).optString("message", "");
 					}
 				}
 
-				// Store in DB
 				DatabaseFunctions.updateDbPostBapi(bu, sno,
 						bu.messages.get(r_object_id) + "Error: " + message + " | " + innerMsg, Constants.errorStatus,
 						null);
-
 			} else {
 				if (res.getJSONObject(Constants.createResponse).getJSONObject(Constants.ret).get(Constants.message)
 						.toString().equals("")) {
-
 					String dirNumber = res.getJSONObject(Constants.createResponse)
 							.getString(Constants.dirNumberResponse);
 					DatabaseFunctions.updateDbPostBapi(bu, sno, "DIR Successfully Created",
@@ -204,32 +172,18 @@ public class SAPOperations implements Runnable {
 							bu.messages.get(r_object_id) + "Error: " + res.getJSONObject(Constants.createResponse)
 									.getJSONObject(Constants.ret).get(Constants.message),
 							Constants.errorStatus, null);
-					/*
-					 * DatabaseFunctions.updateDbError(bu, r_object_id, null, "readytoprocess",
-					 * boIdsJson.toString(), "CREATE",null); DatabaseFunctions.updateDbError(bu,
-					 * r_object_id, null, "readytoprocess", null, "DELETE",dirNumber);
-					 */
 				}
 			}
-
 		} catch (Exception e) {
 			DatabaseFunctions.updateDbPostBapi(bu, sno,
 					bu.messages.get(r_object_id) + "DIR Creation Failed. Error: " + e.getMessage(),
 					Constants.errorStatus, null);
-			/*
-			 * DatabaseFunctions.updateDbError(bu, r_object_id, null, "readytoprocess",
-			 * boIdsJson.toString(), "CREATE",null); DatabaseFunctions.updateDbError(bu,
-			 * r_object_id, null, "readytoprocess", null, "DELETE",dirNumber);
-			 */
-			e.printStackTrace();
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] CREATE failed for objectId={}", bu.buName, Thread.currentThread().getName(), r_object_id, e);
 		}
-
 	}
 
 	private void callDeleteBapi(String dirNumber, HttpClient client, String token, Integer sno, String plant) {
-
-		System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:DELETE :Object ID: "
-				+ r_object_id + " :Planning Plant: " + plant);
+		DIRBulkUpdate.logger.info("{}:{} [BAPI] DELETE objectId={} plant={}", bu.buName, Thread.currentThread().getName(), r_object_id, plant);
 
 		try {
 			HttpRequest request = (HttpRequest) HttpRequest.newBuilder().uri(URI.create(bu.endpoint))
@@ -240,15 +194,10 @@ public class SAPOperations implements Runnable {
 					.header(Constants.sapDocPartField, bu.docPart).header(Constants.sapDocVersionField, bu.docVersion)
 					.method("DELETE", HttpRequest.BodyPublishers.ofString("")).build();
 
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:DELETE Request: "
-					+ request + "\n" + request.headers());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "Operation:DELETE Request: "
-					+ request + "\n" + request.headers());
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] DELETE request → DELETE {} plant={} companyCode={} dirNumber={}", bu.buName, Thread.currentThread().getName(), bu.endpoint, plant, bu.companyCode, dirNumber);
 			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + "Operation:DELETE Response: "
-					+ response.body() + "\n");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "Operation:DELETE Response: "
-					+ response.body() + "\n");
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] DELETE response: {}", bu.buName, Thread.currentThread().getName(), response.body());
+
 			JSONObject res = new JSONObject(response.body());
 			if (res.getJSONObject(Constants.deleteResponse).getJSONObject(Constants.ret).getString(Constants.message)
 					.equals("")) {
@@ -257,26 +206,15 @@ public class SAPOperations implements Runnable {
 			} else {
 				DatabaseFunctions.updateDbPostBapi(bu, sno, res.getJSONObject(Constants.deleteResponse)
 						.getJSONObject(Constants.ret).getString(Constants.message), Constants.errorStatus, dirNumber);
-				/*
-				 * DatabaseFunctions.updateDbError(bu, r_object_id, null, "readytoprocess",
-				 * null, "DELETE",dirNumber);
-				 */
 			}
-
 		} catch (Exception e) {
 			DatabaseFunctions.updateDbPostBapi(bu, sno, "DIR Deletion Failed. Error: " + e.getMessage(),
 					Constants.errorStatus, dirNumber);
-			/*
-			 * DatabaseFunctions.updateDbError(bu, r_object_id, null, "readytoprocess",
-			 * null, "DELETE",dirNumber);
-			 */
-			e.printStackTrace();
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] DELETE failed for dirNumber={}", bu.buName, Thread.currentThread().getName(), dirNumber, e);
 		}
-
 	}
 
 	private String checkAuthToken(JSONObject authToken) {
-
 		try {
 			if (authToken == null || !authToken.has("access_token") || !authToken.has("expires_on")) {
 				return "";
@@ -284,17 +222,15 @@ public class SAPOperations implements Runnable {
 
 			long currentEpoch = Instant.now().getEpochSecond();
 			long expiryEpoch = Long.parseLong(authToken.getString("expires_on"));
-
 			long remainingSeconds = expiryEpoch - currentEpoch;
 
-			System.out.println("Token remaining validity: " + remainingSeconds + " seconds");
+			DIRBulkUpdate.logger.debug("{}:{} [BAPI] Token remaining validity: {}s", bu.buName, Thread.currentThread().getName(), remainingSeconds);
 
 			if (remainingSeconds > 300) {
 				return authToken.getString("access_token");
 			}
-
 		} catch (Exception e) {
-			e.printStackTrace();
+			DIRBulkUpdate.logger.error("{}:{} [BAPI] Error checking auth token validity", bu.buName, Thread.currentThread().getName(), e);
 		}
 
 		return "";

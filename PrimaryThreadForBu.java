@@ -19,72 +19,50 @@ import com.documentum.fc.common.DfException;
  * before pushing the resultant mapping to the processing table.
  */
 public class PrimaryThreadForBu {
-	String buName; // Name of BU
-	Properties prop; // DD values
-	Connection conn; // Database connection
-	IDfSession session; // Documentum session
-	Integer batchNo; // Current Batch Number
-	String docBase; // Docbase name
-	String dateOfLastRun; // Date of last run - to fetch docs modified since then.
+	String buName;
+	Properties prop;
+	Connection conn;
+	IDfSession session;
+	Integer batchNo;
+	String docBase;
+	String dateOfLastRun;
 
-	// contructor to pass sesion data from main function.
 	PrimaryThreadForBu(String buName, Properties prop, IDfSession session, String docBase) {
-
 		this.prop = prop;
 		this.buName = buName;
 		this.session = session;
 		this.docBase = docBase;
 	}
 
-	// primary execution function for DIR Creation Service
 	public void executeForBu() {
 		Decryptor decryptor = new Decryptor();
 
-		System.out.println("Extracting JDBCURL, dbUsername, dbPassword, apiKey, apimPassword, clientId, clientSecret");
-		DIRBulkUpdate.logger
-				.info("Extracting JDBCURL, dbUsername, dbPassword, apiKey, apimPassword, clientId, clientSecret");
+		DIRBulkUpdate.logger.info("{}:{} [INIT] Extracting and decrypting credentials", buName, Thread.currentThread().getName());
 
 		String jdbcUrl = prop.getProperty("jdbcURL");
 		String dBUsername = prop.getProperty("dBUsername");
 		if (jdbcUrl == null) {
-			System.out.println(buName + ": " + Thread.currentThread().getName() + " could not extract JDBC URL.");
-			DIRBulkUpdate.logger
-					.info(buName + ": " + Thread.currentThread().getName() + " could not extract JDBC URL.");
-
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Could not extract JDBC URL", buName, Thread.currentThread().getName());
 			return;
 		}
 		if (dBUsername == null) {
-			System.out.println(buName + ": " + Thread.currentThread().getName() + " could not extract DB User.");
-			DIRBulkUpdate.logger.info(buName + ": " + Thread.currentThread().getName() + " could not extract DB User.");
-
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Could not extract DB User", buName, Thread.currentThread().getName());
 			return;
 		}
-
-		System.out.println(buName + ": " + Thread.currentThread().getName() + "Decrypting creds");
-		DIRBulkUpdate.logger.info(buName + ": " + Thread.currentThread().getName() + "Decrypting creds");
 
 		String dBPassword;
 		try {
 			dBPassword = decryptor.decrypt(prop.getProperty("dbPassword"));
 		} catch (Exception e) {
-			System.out
-					.println(buName + ": " + Thread.currentThread().getName() + " could not extract DB User Password.");
-			DIRBulkUpdate.logger
-					.info(buName + ": " + Thread.currentThread().getName() + " could not extract DB User Password.");
-
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Could not decrypt DB Password", buName, Thread.currentThread().getName(), e);
 			return;
 		}
 
 		String apimPassword;
 		try {
 			apimPassword = decryptor.decrypt(prop.getProperty("APIMPassword"));
-			// apimPassword = DIRBulkUpdate.prop.getProperty("APIPass");
 		} catch (Exception e) {
-			System.out.println(
-					buName + ": " + Thread.currentThread().getName() + " could not extract APIM User Password.");
-			DIRBulkUpdate.logger
-					.info(buName + ": " + Thread.currentThread().getName() + " could not extract APIM User Password.");
-
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Could not decrypt APIM Password", buName, Thread.currentThread().getName(), e);
 			return;
 		}
 
@@ -92,10 +70,7 @@ public class PrimaryThreadForBu {
 		try {
 			clientSecret = decryptor.decrypt(prop.getProperty("clientSecret"));
 		} catch (Exception e) {
-			System.out.println(buName + ": " + Thread.currentThread().getName() + " could not extract Client Secret.");
-			DIRBulkUpdate.logger
-					.info(buName + ": " + Thread.currentThread().getName() + " could not extract Client Secret.");
-
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Could not decrypt Client Secret", buName, Thread.currentThread().getName(), e);
 			return;
 		}
 
@@ -103,296 +78,197 @@ public class PrimaryThreadForBu {
 		try {
 			apiKey = decryptor.decrypt(prop.getProperty("APIKey"));
 		} catch (Exception e) {
-			System.out.println(buName + ": " + Thread.currentThread().getName() + " could not extract API Key.");
-			DIRBulkUpdate.logger.info(buName + ": " + Thread.currentThread().getName() + " could not extract API Key.");
-
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Could not decrypt API Key", buName, Thread.currentThread().getName(), e);
 			return;
 		}
-		System.out.println(buName + ": " + Thread.currentThread().getName() + "Creds decrypted");
-		DIRBulkUpdate.logger.info(buName + ": " + Thread.currentThread().getName() + "Creds decrypted");
 
-		System.out.println("Database connection started");
-		DIRBulkUpdate.logger.info("Database connection started");
+		DIRBulkUpdate.logger.info("{}:{} [INIT] Credentials decrypted successfully", buName, Thread.currentThread().getName());
+		DIRBulkUpdate.logger.info("{}:{} [INIT] Database connection starting", buName, Thread.currentThread().getName());
 
 		try {
 			conn = DatabaseFunctions.connectToDatabase(jdbcUrl, dBUsername, dBPassword);
 		} catch (SQLException e) {
-			e.printStackTrace();
-			DIRBulkUpdate.logger.info("Database connection error: " + e.getMessage());
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Database connection failed");
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Database connection failed");
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Database connection failed", buName, Thread.currentThread().getName(), e);
 			if (session != null) {
 				try {
 					session.disconnect();
 				} catch (DfException ex) {
-					ex.printStackTrace();
-					DIRBulkUpdate.logger.info("Documentum disconnection error: " + ex.getMessage());
+					DIRBulkUpdate.logger.error("{}:{} [INIT] Documentum disconnection error", buName, Thread.currentThread().getName(), ex);
 				}
 			}
-
 			return;
 		}
 
 		if (conn == null) {
-			System.err.println(buName + ":" + Thread.currentThread().getName() + ": Database connection failed");
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Database connection failed");
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Database connection is null", buName, Thread.currentThread().getName());
 			if (session != null) {
 				try {
 					session.disconnect();
 				} catch (DfException ex) {
-					ex.printStackTrace();
-					DIRBulkUpdate.logger.info("Documentum disconnection error: " + ex.getMessage());
+					DIRBulkUpdate.logger.error("{}:{} [INIT] Documentum disconnection error", buName, Thread.currentThread().getName(), ex);
 				}
 			}
-
 			return;
 		}
 
 		try {
 			batchNo = DatabaseFunctions.getMaxBatchValue(prop, conn, buName);
 			dateOfLastRun = DatabaseFunctions.getDateOfLastRun(prop, conn, buName);
-
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Batch No: " + batchNo);
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Batch No: " + batchNo);
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Last Run Date: " + dateOfLastRun);
-			DIRBulkUpdate.logger
-					.info(buName + ":" + Thread.currentThread().getName() + ": Last Run Date: " + dateOfLastRun);
+			DIRBulkUpdate.logger.info("{}:{} [INIT] Batch No={}", buName, Thread.currentThread().getName(), batchNo);
+			DIRBulkUpdate.logger.info("{}:{} [INIT] Last Run Date={}", buName, Thread.currentThread().getName(), dateOfLastRun);
 		} catch (SQLException e) {
-			System.out.println(
-					buName + ":" + Thread.currentThread().getName() + ": could not fetch data from Processing Table.");
-			DIRBulkUpdate.logger.info(
-					buName + ":" + Thread.currentThread().getName() + ": could not fetch date from Processing Table.");
+			DIRBulkUpdate.logger.error("{}:{} [INIT] Could not fetch batch data from Processing Table", buName, Thread.currentThread().getName(), e);
 			if (session != null) {
 				try {
 					session.disconnect();
 				} catch (DfException ex) {
-					ex.printStackTrace();
-					DIRBulkUpdate.logger.info("Documentum disconnection error: " + ex.getMessage());
+					DIRBulkUpdate.logger.error("{}:{} [INIT] Documentum disconnection error", buName, Thread.currentThread().getName(), ex);
 				}
 			}
 			if (conn != null) {
 				try {
 					conn.close();
 				} catch (SQLException ex) {
-					ex.printStackTrace();
-					DIRBulkUpdate.logger.info("Database disconnection error: " + ex.getMessage());
+					DIRBulkUpdate.logger.error("{}:{} [INIT] Database disconnection error", buName, Thread.currentThread().getName(), ex);
 				}
 			}
-
 			return;
 		}
 
-		// Initialize BUProperties object with execution specific data.
-		BUProperties bu = new BUProperties(session, conn, buName, batchNo, dateOfLastRun, docBase, apiKey, apimPassword,
-				clientSecret);
+		BUProperties bu = new BUProperties(session, conn, buName, batchNo, dateOfLastRun, docBase, apiKey, apimPassword, clientSecret);
 		bu.setAttrIndex();
 
 		if (prop.getProperty("pullDirectory").equalsIgnoreCase("True")) {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Pulling directory");
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Pulling directory");
+			DIRBulkUpdate.logger.info("{}:{} [FETCH] Pulling directory", buName, Thread.currentThread().getName());
 
 			try {
-				System.out.println(buName + ":" + Thread.currentThread().getName()
-						+ ": Updating failed documents from previous executions");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName()
-						+ ": Updating failed documents from previous executions");
+				DIRBulkUpdate.logger.info("{}:{} [DCTM] Updating failed documents from previous executions", buName, Thread.currentThread().getName());
 				DocumentumFunctions.addDirNumberWhichFailed(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName()
-						+ ": Updated failed documents from previous executions");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName()
-						+ ": Updated failed documents from previous executions");
+				DIRBulkUpdate.logger.info("{}:{} [DCTM] Updated failed documents from previous executions", buName, Thread.currentThread().getName());
 
-				System.out.println(buName + ":" + Thread.currentThread().getName()
-						+ ": Updating deleted documents from previous executions");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName()
-						+ ": Updating deleted documents from previous executions");
+				DIRBulkUpdate.logger.info("{}:{} [CLEANUP] Updating deleted documents from previous executions", buName, Thread.currentThread().getName());
 				DatabaseFunctions.updateDeletedDocRows(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName()
-						+ ": Updated failed deleted from previous executions");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName()
-						+ ": Updated deleted documents from previous executions");
+				DIRBulkUpdate.logger.info("{}:{} [CLEANUP] Updated deleted documents from previous executions", buName, Thread.currentThread().getName());
 
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Fetching FLOCs");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Fetching FLOCs");
+				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetching FLOC alternate labels from D2", buName, Thread.currentThread().getName());
 				DocumentumFunctions.getAlternateLabelsFromD2(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Fetched FLOCs");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Fetched FLOCs");
+				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetched FLOC alternate labels from D2", buName, Thread.currentThread().getName());
 
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Fetching documents");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Fetching Documents");
+				DIRBulkUpdate.logger.info("{}:{} [FETCH] Fetching documents from D2", buName, Thread.currentThread().getName());
 				if (!prop.getProperty("cutOverFlag").equalsIgnoreCase("True")) {
 					DocumentumFunctions.updateParentTags(bu);
 					DocumentumFunctions.checkInputDocuments(bu);
 					DocumentumFunctions.checkDeleteDocuments(bu);
 				} else {
-					DatabaseFunctions.fetchDocuments(bu); // Check for plant value in the DB
+					DatabaseFunctions.fetchDocuments(bu);
 				}
-
-				System.err.println(buName + ":" + Thread.currentThread().getName() + ": Documents fetched");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Documents fetched");
+				DIRBulkUpdate.logger.info("{}:{} [FETCH] Documents fetched", buName, Thread.currentThread().getName());
 
 			} catch (Exception e) {
-				System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-				DIRBulkUpdate.logger
-						.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+				DIRBulkUpdate.logger.error("{}:{} [FETCH] Error during fetch phase", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
-
 				return;
 			}
 		}
 
-
 		if (prop.getProperty("populateStaging").equalsIgnoreCase("True")) {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Populating Staging Table");
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + "Populating Staging Table");
+			DIRBulkUpdate.logger.info("{}:{} [STAGING] Populating staging table", buName, Thread.currentThread().getName());
 			try {
 				DatabaseFunctions.populateStagingTable(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Populated Staging Table");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + "Populated Staging Table");
-
+				DIRBulkUpdate.logger.info("{}:{} [STAGING] Staging table populated", buName, Thread.currentThread().getName());
 			} catch (Exception e) {
-				System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-				DIRBulkUpdate.logger
-						.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+				DIRBulkUpdate.logger.error("{}:{} [STAGING] Error populating staging table", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
-
 				return;
 			}
 		}
 
 		if (prop.getProperty("compareAndFindDeltas").equalsIgnoreCase("True")) {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Finding Deltas");
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + "Finding Deltas");
-
+			DIRBulkUpdate.logger.info("{}:{} [DELTA] Finding deltas", buName, Thread.currentThread().getName());
 			try {
 				DatabaseFunctions.findDeltas(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Found deltas");
-				DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + "Found deltas");
-
+				DIRBulkUpdate.logger.info("{}:{} [DELTA] Deltas found", buName, Thread.currentThread().getName());
 			} catch (Exception e) {
-				System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-				DIRBulkUpdate.logger
-						.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+				DIRBulkUpdate.logger.error("{}:{} [DELTA] Error finding deltas", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
-
 				return;
 			}
 		}
 
-		System.out.println(buName + ":" + Thread.currentThread().getName() + ": DIRs to create: " + bu.buMap);
-		DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": DIRs to create: " + bu.buMap);
+		DIRBulkUpdate.logger.info("{}:{} [DELTA] DIRs to create={}", buName, Thread.currentThread().getName(), bu.buMap.length());
+		DIRBulkUpdate.logger.info("{}:{} [DELTA] DIRs to update={}", buName, Thread.currentThread().getName(), bu.buMapForUpdate.length());
+		DIRBulkUpdate.logger.info("{}:{} [DELTA] DIRs to delete={}", buName, Thread.currentThread().getName(), bu.buMapForDelete.size());
+		DIRBulkUpdate.logger.debug("{}:{} [DELTA] buMap contents: {}", buName, Thread.currentThread().getName(), bu.buMap);
+		DIRBulkUpdate.logger.debug("{}:{} [DELTA] buMapForUpdate contents: {}", buName, Thread.currentThread().getName(), bu.buMapForUpdate);
+		DIRBulkUpdate.logger.debug("{}:{} [DELTA] buMapForDelete contents: {}", buName, Thread.currentThread().getName(), bu.buMapForDelete);
 
-		System.out.println(buName + ":" + Thread.currentThread().getName() + ": DIRs to update: " + bu.buMapForUpdate);
-		DIRBulkUpdate.logger
-				.info(buName + ":" + Thread.currentThread().getName() + ": DIRs to update: " + bu.buMapForUpdate);
-
-		System.out.println(buName + ":" + Thread.currentThread().getName() + ": DIRs to delete: " + bu.buMapForDelete);
-		DIRBulkUpdate.logger
-				.info(buName + ":" + Thread.currentThread().getName() + ": DIRs to delete: " + bu.buMapForDelete);
-
-		
 		// R4A
-		System.out.println(buName + ":" + Thread.currentThread().getName() + ": Retrieving plants: Operation: CREATE ");
-		DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Retrieving plants: Operation: CREATE ");
-
+		DIRBulkUpdate.logger.info("{}:{} [PLANTS] Retrieving planning plants for CREATE", buName, Thread.currentThread().getName());
 		if (!bu.buMap.isEmpty()) {
 			DocumentumFunctions.FetchPlanningPlants(bu, "CREATE");
-		}else {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": No documents: Operation: CREATE ");
-			DIRBulkUpdate.logger
-					.info(buName + ":" + Thread.currentThread().getName() + ": No documents: Operation: CREATE ");
+		} else {
+			DIRBulkUpdate.logger.info("{}:{} [PLANTS] No documents for CREATE", buName, Thread.currentThread().getName());
 		}
 
-		System.out.println(buName + ":" + Thread.currentThread().getName() + ": Retrieving plants: Operation: UPDATE ");
-		DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Retrieving plants: Operation: UPDATE ");
+		DIRBulkUpdate.logger.info("{}:{} [PLANTS] Retrieving planning plants for UPDATE", buName, Thread.currentThread().getName());
 		if (!bu.buMapForUpdate.isEmpty()) {
 			DocumentumFunctions.FetchPlanningPlants(bu, "UPDATE");
 		} else {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": No documents: Operation: UPDATE ");
-			DIRBulkUpdate.logger
-					.info(buName + ":" + Thread.currentThread().getName() + ": No documents: Operation: UPDATE ");
+			DIRBulkUpdate.logger.info("{}:{} [PLANTS] No documents for UPDATE", buName, Thread.currentThread().getName());
 		}
 
-		System.out.println(buName + ":" + Thread.currentThread().getName() + ": Retrieving plants: Operation: DELETE ");
-		DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + ": Retrieving plants: Operation: DELETE ");
+		DIRBulkUpdate.logger.info("{}:{} [PLANTS] Retrieving planning plants for DELETE", buName, Thread.currentThread().getName());
 		if (bu.buMapForDelete.size() > 0) {
 			for (String docId : bu.buMapForDelete.keySet()) {
 				bu.buMapForDeleteWithPlants.put(docId, "");
 			}
 			DocumentumFunctions.FetchPlanningPlantsDeleted(bu); // R4A
 		} else {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": No documents: Operation: DELETE ");
-			DIRBulkUpdate.logger
-					.info(buName + ":" + Thread.currentThread().getName() + ": No documents: Operation: DELETE ");
+			DIRBulkUpdate.logger.info("{}:{} [PLANTS] No documents for DELETE", buName, Thread.currentThread().getName());
 		}
 
-		
 		if (prop.getProperty("populateProcessing").equalsIgnoreCase("True")) {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Populating Processing Table");
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + "Populating Processing Table");
+			DIRBulkUpdate.logger.info("{}:{} [PROCESS] Populating processing table", buName, Thread.currentThread().getName());
 			try {
 				DatabaseFunctions.populateProcessingTable(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Populated Processing Table");
-				DIRBulkUpdate.logger
-						.info(buName + ":" + Thread.currentThread().getName() + "Populated Processing Table");
-
+				DIRBulkUpdate.logger.info("{}:{} [PROCESS] Processing table populated", buName, Thread.currentThread().getName());
 			} catch (Exception e) {
-				System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-				DIRBulkUpdate.logger
-						.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+				DIRBulkUpdate.logger.error("{}:{} [PROCESS] Error populating processing table", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
-
 				return;
 			}
 		}
-
 
 		if (prop.getProperty("callBapis").equalsIgnoreCase("True")) {
-			System.out.println(buName + ":" + Thread.currentThread().getName() + ": Calling API Endpoints");
-			DIRBulkUpdate.logger.info(buName + ":" + Thread.currentThread().getName() + "Calling API Endpoints");
+			DIRBulkUpdate.logger.info("{}:{} [BAPI] Calling SAP API endpoints", buName, Thread.currentThread().getName());
 			try {
-				System.out
-						.println(buName + ":" + Thread.currentThread().getName() + ": Fetching FLOC Alternate Labels");
-				DIRBulkUpdate.logger
-						.info(buName + ":" + Thread.currentThread().getName() + "Fetching FLOC Alternate Labels");
+				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetching FLOC alternate labels for BAPI", buName, Thread.currentThread().getName());
 				DocumentumFunctions.getFlocAlternateLabels(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": Fetched FLOC Alternate Labels");
-				DIRBulkUpdate.logger
-						.info(buName + ":" + Thread.currentThread().getName() + "Fetched FLOC Alternate Labels");
+				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetched FLOC alternate labels for BAPI", buName, Thread.currentThread().getName());
 				DatabaseFunctions.processDirs(bu);
-				System.out.println(buName + ":" + Thread.currentThread().getName() + ": DIRs Processed Successfully");
-				DIRBulkUpdate.logger
-						.info(buName + ":" + Thread.currentThread().getName() + "DIRs Processsed Successfully");
-
+				DIRBulkUpdate.logger.info("{}:{} [BAPI] DIRs processed successfully", buName, Thread.currentThread().getName());
 			} catch (Exception e) {
-				System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-				DIRBulkUpdate.logger
-						.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+				DIRBulkUpdate.logger.error("{}:{} [BAPI] Error processing DIRs", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
-
 				return;
 			}
 		}
 
-		System.out.println("Reporting");
-		DIRBulkUpdate.logger.info("Reporting");
+		DIRBulkUpdate.logger.info("{}:{} [REPORT] Generating batch report", buName, Thread.currentThread().getName());
 		if (prop.getProperty("report").equalsIgnoreCase("True")) {
 			try {
 				reporting(bu);
 			} catch (Exception e) {
-				e.printStackTrace();
+				DIRBulkUpdate.logger.error("{}:{} [REPORT] Error generating report", buName, Thread.currentThread().getName(), e);
 			}
-
 		}
 		bu.cleanUp();
-
 	}
 
 	/*
 	 * This function is used to decrypt the environment variables. It takes in the
 	 * decryptor and env variable name, extracts the env variable, decrypts it, and
 	 * return the value.
-	 * 
 	 */
 	static String decryptEnvVar(String envVarName, Decryptor decryptor) throws Exception {
 		String envVarValue = System.getenv(envVarName);
@@ -407,7 +283,6 @@ public class PrimaryThreadForBu {
 	 * successful/failed count.
 	 */
 	private static void reporting(BUProperties bu) {
-
 		String batchSummarySql = String.format(DIRBulkUpdate.prop.getProperty("batchSummaryQuery"), bu.processingTable,
 				bu.batchNo, bu.buName, bu.processingTable, bu.batchNo, bu.buName, bu.processingTable, bu.batchNo,
 				bu.buName);
@@ -420,16 +295,10 @@ public class PrimaryThreadForBu {
 						+ "============================================================", bu.buName,
 						Thread.currentThread().getName(), bu.batchNo, rs.getString(1), rs.getString(2),
 						rs.getString(3));
-
-				System.out.println(report);
 				DIRBulkUpdate.logger.info(report);
 			}
 		} catch (SQLException ex) {
-			ex.printStackTrace();
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error while fetching records");
-			DIRBulkUpdate.logger
-					.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error while fetching records");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + "error: " + ex.getMessage());
+			DIRBulkUpdate.logger.error("{}:{} [REPORT] Error fetching batch summary", bu.buName, Thread.currentThread().getName(), ex);
 		}
 	}
 }

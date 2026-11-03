@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+
+        <!-- Console: clean progress view, follows root level (INFO normally, DEBUG when debugMode=True) -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%-5level %msg%n"/>
+        </Console>
+
+        <!-- File: full timestamped output, follows root level, daily rolling with 30-day retention -->
+        <RollingFile name="File"
+                     fileName="logs/dir-utility.log"
+                     filePattern="logs/dir-utility-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%-5level] %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="50MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+        <!--
+            Default level is INFO.
+            When debugMode=True in the D2 data dictionary, DIRBulkUpdate.java calls
+            Configurator.setRootLevel(Level.DEBUG) at startup, which switches both
+            Console and File appenders to DEBUG without any restart or redeploy.
+        -->
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Root>
+    </Loggers>
+</Configuration>

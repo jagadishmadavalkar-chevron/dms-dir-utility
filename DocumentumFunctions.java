@@ -11,7 +11,6 @@ import org.json.JSONObject;
 
 import com.documentum.fc.client.DfQuery;
 import com.documentum.fc.client.IDfCollection;
-
 import com.documentum.fc.client.IDfQuery;
 import com.documentum.fc.client.IDfSession;
 import com.documentum.fc.common.DfException;
@@ -23,14 +22,14 @@ public class DocumentumFunctions {
 		String documentFetchDql = String.format(bu.relatedTagsDql, DIRBulkUpdate.prop.getProperty("type"),
 				bu.dateOfLastRun, DIRBulkUpdate.prop.getProperty("statusForDir"),
 				DIRBulkUpdate.prop.getProperty("doctype"), DIRBulkUpdate.prop.getProperty("documentTypeToSkip"));
-			
-		System.out.println("relatedTagsDocumentFetchDql: " + documentFetchDql);
+
+		DIRBulkUpdate.logger.debug("{}:{} [DCTM] relatedTagsDocumentFetchDql: {}", bu.buName, Thread.currentThread().getName(), documentFetchDql);
 		query.setDQL(documentFetchDql);
 		IDfCollection collection = null;
 		try {
 			collection = query.execute(bu.session, IDfQuery.DF_READ_QUERY);
 			if (collection == null) {
-				System.err.println("There are no documents in " + bu.buName + " D2 to process.");
+				DIRBulkUpdate.logger.warn("{}:{} [DCTM] No documents in D2 to process", bu.buName, Thread.currentThread().getName());
 			} else {
 				while (collection.next()) {
 					String rObjId = collection.getString(Constants.dbDocId);
@@ -38,8 +37,7 @@ public class DocumentumFunctions {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+			DIRBulkUpdate.logger.error("{}:{} [DCTM] Error in updateParentTags", bu.buName, Thread.currentThread().getName(), e);
 		}
 	}
 
@@ -50,21 +48,15 @@ public class DocumentumFunctions {
 	 * properties.
 	 */
 	protected static void checkInputDocuments(BUProperties bu) throws DfException {
-
 		IDfQuery query = new DfQuery();
-		System.out.println(bu.dql);
+		DIRBulkUpdate.logger.debug("{}:{} [DCTM] dql template: {}", bu.buName, Thread.currentThread().getName(), bu.dql);
 		String fields = DIRBulkUpdate.prop.getProperty("inputAttrsr2") + "," + Constants.d2DirField;
 
-		// select title, r_object_id,i_chronicle_id,%s from %s where r_modify_date >=
-		// '%s'
-		// and a_status in (%s) and %s not in (%s) and any r_version_label='CURRENT';
-
-		// selecting title, r_object_id, ichronicle_id, and gom_document;
 		String documentFetchDql = String.format(bu.dql, fields, DIRBulkUpdate.prop.getProperty("type"),
 				bu.dateOfLastRun, DIRBulkUpdate.prop.getProperty("statusForDir"),
-				DIRBulkUpdate.prop.getProperty("doctype"), DIRBulkUpdate.prop.getProperty("documentTypeToSkip"));// ,DIRBulkUpdate.prop.getProperty("documentTypeToSkip"));
+				DIRBulkUpdate.prop.getProperty("doctype"), DIRBulkUpdate.prop.getProperty("documentTypeToSkip"));
 
-		System.out.println(documentFetchDql);
+		DIRBulkUpdate.logger.debug("{}:{} [DCTM] checkInputDocuments DQL: {}", bu.buName, Thread.currentThread().getName(), documentFetchDql);
 		query.setDQL(documentFetchDql);
 		IDfCollection collection = null;
 		try {
@@ -72,8 +64,7 @@ public class DocumentumFunctions {
 			if (collection == null) {
 				DatabaseFunctions.updateDbError(bu, "NA", "No documents in D2 to process. ", Constants.completedStatus,
 						null, "NA", null);
-				System.err.println("There are no documents in " + bu.buName + " D2 to process.");
-				DIRBulkUpdate.logger.info("There are no documents in " + bu.buName + " D2 to process.");
+				DIRBulkUpdate.logger.warn("{}:{} [DCTM] No documents in D2 to process", bu.buName, Thread.currentThread().getName());
 			} else {
 				while (collection.next()) {
 					Map<String, String> input = new HashMap<>();
@@ -86,10 +77,7 @@ public class DocumentumFunctions {
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("FLOCField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("FLOCField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-						// flocLabels =
-						// flocLabels+","+Arrays.stream(ids).map(key->"'"+key+"'").collect(Collectors.joining(","));
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("FLOCField")), StringUtils.join(ids, ","));
 					}
 
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("TLSTField"));
@@ -98,9 +86,7 @@ public class DocumentumFunctions {
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("TLSTField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("TLSTField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("TLSTField")), StringUtils.join(ids, ","));
 					}
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("IPLNField"));
 					if (valueCount != 0 && !collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("IPLNField"), 0).trim().isEmpty()) {
@@ -108,9 +94,7 @@ public class DocumentumFunctions {
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("IPLNField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("IPLNField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("IPLNField")), StringUtils.join(ids, ","));
 					}
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("WRDRField"));
 					if (valueCount != 0 && !collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("WRDRField"), 0).trim().isEmpty()) {
@@ -118,9 +102,7 @@ public class DocumentumFunctions {
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("WRDRField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("WRDRField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("WRDRField")), StringUtils.join(ids, ","));
 					}
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("EQUIField"));
 					if (valueCount != 0 && !collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("EQUIField"), 0).trim().isEmpty()) {
@@ -128,13 +110,11 @@ public class DocumentumFunctions {
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("EQUIField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("EQUIField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("EQUIField")), StringUtils.join(ids, ","));
 					}
 
 					bu.buMap.put(collection.getString(Constants.d2ChronicleId), input);
-					bu.buMapWithPlants.put(collection.getString(Constants.d2ChronicleId), ""); // R4As
+					bu.buMapWithPlants.put(collection.getString(Constants.d2ChronicleId), ""); // R4A
 
 					if (!(collection.getString(Constants.d2DirField).equals(null)
 							|| collection.getString(Constants.d2DirField).equals(""))) {
@@ -143,31 +123,15 @@ public class DocumentumFunctions {
 						dirMap.put(collection.getString(Constants.dbDocId), "");
 					}
 					bu.docsWithNewVersion.put(collection.getString(Constants.d2ChronicleId), dirMap);
-					bu.titles.put(collection.getString(Constants.d2ChronicleId),
-							collection.getString(Constants.d2TitleField));
-
-					// System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ":
-					// New Document--"+(count+1)+". id: "+input.get(Constants.dbDocId)+", isAveva:
-					// "+input.get(Constants.fileSrcAveva)+", name:
-					// "+input.get(Constants.d2ObjName));
-					// DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName()
-					// + ": New Document--"+(count+1)+". id: "+input.get(Constants.dbDocId)+",
-					// isAveva: "+input.get(Constants.fileSrcAveva)+", name:
-					// "+input.get(Constants.d2ObjName));
-					// System.out.println(bu.docsWithNewVersion);
-
+					bu.titles.put(collection.getString(Constants.d2ChronicleId), collection.getString(Constants.d2TitleField));
 				}
 
-//				System.out.println("bu.buMap from checkInputDocuments Evergreen: " + bu.buMap);
-//				System.out
-//						.println("bu.docsWithNewVersion from checkInputDocuments Evergreen: " + bu.docsWithNewVersion);
-//				System.out.println("bu.titles from checkInputDocuments Evergreen: " + bu.titles);
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] checkInputDocuments buMap: {}", bu.buName, Thread.currentThread().getName(), bu.buMap);
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] checkInputDocuments docsWithNewVersion: {}", bu.buName, Thread.currentThread().getName(), bu.docsWithNewVersion);
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] checkInputDocuments titles: {}", bu.buName, Thread.currentThread().getName(), bu.titles);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-			DIRBulkUpdate.logger
-					.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+			DIRBulkUpdate.logger.error("{}:{} [DCTM] Error in checkInputDocuments", bu.buName, Thread.currentThread().getName(), e);
 			DatabaseFunctions.updateDbError(bu, "NA", "Could not fetch documents. " + e.getMessage(),
 					Constants.errorStatus, null, "NA", null);
 		} finally {
@@ -175,7 +139,6 @@ public class DocumentumFunctions {
 				collection.close();
 			}
 		}
-
 	}
 
 	// R4A
@@ -185,36 +148,29 @@ public class DocumentumFunctions {
 		String d2ObjectType = "";
 		IDfCollection collection = null;
 		JSONObject buMap = new JSONObject();
-		if(operation == "CREATE") {
+		if (operation == "CREATE") {
 			buMap = bu.buMap;
 		} else {
 			buMap = bu.buMapForUpdate;
 		}
 
-		// Map through buMap & update the plant details in buMapWithPlants itself.
 		for (String docId : buMap.keySet()) {
-
 			JSONObject docValue = buMap.getJSONObject(docId);
-
-//			System.out.println("docValue: " + docValue);
-//			System.out.println("docValue length: " + docValue.length());
+			DIRBulkUpdate.logger.debug("{}:{} [PLANTS] docId={} docValue={}", bu.buName, Thread.currentThread().getName(), docId, docValue);
 
 			if (docValue == null || docValue.length() == 0) {
 				bu.buMapWithPlants.put(docId, "No object links");
-				continue; // empty inner object
+				continue;
 			}
 
-			// Get the first key from inner JSON
 			String objectKey = docValue.keys().next();
-			
-			// Get its value and pick the first value before comma
 			String objectName = docValue.optString(objectKey).split(",")[0].trim();
 			if (objectKey.contains("_create") || objectKey.contains("_remove")) {
 				objectKey = objectKey.split("_")[0].trim();
-			} 
+			}
 			d2ObjectType = Constants.objTypes.get(objectKey);
 			planningPlantFetchDql = String.format(bu.planningPlantDql, d2ObjectType, objectName);
-//			System.out.println("planningPlantFetchDql: " + planningPlantFetchDql);
+			DIRBulkUpdate.logger.debug("{}:{} [PLANTS] planningPlantFetchDql: {}", bu.buName, Thread.currentThread().getName(), planningPlantFetchDql);
 			query.setDQL(planningPlantFetchDql);
 
 			try {
@@ -222,14 +178,12 @@ public class DocumentumFunctions {
 				String planningPlant = "";
 				collection = query.execute(bu.session, IDfQuery.DF_READ_QUERY);
 				if (collection == null) {
-					System.out.println("No planning plant values present");
-					DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": No planning plant values present in D2");
+					DIRBulkUpdate.logger.warn("{}:{} [PLANTS] No planning plant values present in D2", bu.buName, Thread.currentThread().getName());
 				} else {
 					while (collection.next()) {
 						objName = collection.getString(Constants.d2ObjectName);
 						planningPlant = collection.getString(Constants.d2PlanningPlant);
-//						System.out.println("objectName: " + objName);
-//						System.out.println("PlanningPlant: " + planningPlant);
+						DIRBulkUpdate.logger.debug("{}:{} [PLANTS] objectName={} planningPlant={}", bu.buName, Thread.currentThread().getName(), objName, planningPlant);
 					}
 				}
 
@@ -239,16 +193,11 @@ public class DocumentumFunctions {
 					bu.buMapWithPlants.put(docId, "No planning plant");
 				}
 			} catch (Exception e) {
-				System.out.println("Error in planning plant fetch operation: " + e);
-				DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error in planning plant fetch operation:" + e.getMessage());
+				DIRBulkUpdate.logger.error("{}:{} [PLANTS] Error in planning plant fetch operation", bu.buName, Thread.currentThread().getName(), e);
 			}
 
-//			System.out.println("docId = " + docId);
-//			System.out.println("firstKey = " + objectKey);
-//			System.out.println("firstValue = " + objectName);
-//			System.out.println("------------------------------");
+			DIRBulkUpdate.logger.debug("{}:{} [PLANTS] docId={} firstKey={} firstValue={}", bu.buName, Thread.currentThread().getName(), docId, objectKey, objectName);
 		}
-
 	}
 
 	// R4A
@@ -264,9 +213,8 @@ public class DocumentumFunctions {
 		}
 
 		deleteIds = deleteIds.substring(1);
-		System.out.println("DeleteIds: " + deleteIds);
-		String fetchDeleteIdsPlanningPlantsSql = String.format(bu.fetchDeleteIdsPlanningPlantsSql, bu.processingTable,
-				deleteIds);
+		DIRBulkUpdate.logger.debug("{}:{} [PLANTS] DELETE chronicleIds: {}", bu.buName, Thread.currentThread().getName(), deleteIds);
+		String fetchDeleteIdsPlanningPlantsSql = String.format(bu.fetchDeleteIdsPlanningPlantsSql, bu.processingTable, deleteIds);
 
 		try {
 			PreparedStatement stmt = bu.conn.prepareStatement(fetchDeleteIdsPlanningPlantsSql);
@@ -275,7 +223,7 @@ public class DocumentumFunctions {
 				String docId = rs.getString(Constants.d2ChronicleId);
 				String plant = rs.getString("plant");
 				if (plant != null) {
-					System.out.println("Plant available in database: ObjectId: " + docId + " Plant: " + plant);
+					DIRBulkUpdate.logger.debug("{}:{} [PLANTS] DELETE plant from DB: objectId={} plant={}", bu.buName, Thread.currentThread().getName(), docId, plant);
 					bu.buMapForDeleteWithPlants.put(docId, plant);
 				} else {
 					String boIds = rs.getString("bo_ids");
@@ -283,8 +231,7 @@ public class DocumentumFunctions {
 
 					String objectKey = boIdsJson.keys().next();
 					String objectName = boIdsJson.getString(objectKey).split(",")[0].trim();
-//					System.out.println("DELETE OP objectKey: " + objectKey);
-//					System.out.println("DELETE OP objectName: " + objectName);
+					DIRBulkUpdate.logger.debug("{}:{} [PLANTS] DELETE OP objectKey={} objectName={}", bu.buName, Thread.currentThread().getName(), objectKey, objectName);
 					if (objectKey.contains("_create") || objectKey.contains("_remove")) {
 						objectKey = objectKey.split("_")[0].trim();
 					} else {
@@ -297,14 +244,12 @@ public class DocumentumFunctions {
 							String planningPlant = "";
 							collection = query.execute(bu.session, IDfQuery.DF_READ_QUERY);
 							if (collection == null) {
-								System.out.println("No planning plant values present");
-								DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": No planning plant values present");	
+								DIRBulkUpdate.logger.warn("{}:{} [PLANTS] No planning plant values present for DELETE", bu.buName, Thread.currentThread().getName());
 							} else {
 								while (collection.next()) {
 									objName = collection.getString("object_name");
 									planningPlant = collection.getString("maint_plant");
-//									System.out.println("DELETE Operation: objectName: " + objName);
-//									System.out.println("DELETE Operation: planningPlant: " + planningPlant);
+									DIRBulkUpdate.logger.debug("{}:{} [PLANTS] DELETE Operation: objectName={} planningPlant={}", bu.buName, Thread.currentThread().getName(), objName, planningPlant);
 								}
 							}
 
@@ -315,29 +260,21 @@ public class DocumentumFunctions {
 							}
 
 						} catch (Exception e) {
-							System.out.println("Error in planning plant fetch operation: DELETE : " + e.getMessage());
-							DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error in planning plant fetch operation: DELETE : " + e.getMessage());
+							DIRBulkUpdate.logger.error("{}:{} [PLANTS] Error in planning plant fetch for DELETE", bu.buName, Thread.currentThread().getName(), e);
 						}
 					}
 				}
-
 			}
-			
 
 		} catch (Exception e) {
-			System.out.println("Error in fetching plants from DB: Operation: DELETE : ERROR: " + e.getMessage());
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error in fetching plants from DB: Operation: DELETE : ERROR: " + e.getMessage());
-			
+			DIRBulkUpdate.logger.error("{}:{} [PLANTS] Error fetching plants from DB for DELETE", bu.buName, Thread.currentThread().getName(), e);
 		}
-
 	}
 
 	protected static int checkDeleteDocuments(BUProperties bu) throws DfException {
 		int count = 0;
 		IDfQuery queryTrail = new DfQuery();
-//		System.out.println(bu.deleteTrailDql);
 		String deleteTrailDql = String.format(bu.deleteTrailDql, bu.dateOfLastRun);
-//		System.out.println(deleteTrailDql);
 		queryTrail.setDQL(deleteTrailDql);
 
 		IDfCollection collection = null;
@@ -345,8 +282,7 @@ public class DocumentumFunctions {
 			String input = "";
 			collection = queryTrail.execute(bu.session, IDfQuery.DF_READ_QUERY);
 			if (collection == null) {
-				System.err.println("There are no report in " + bu.buName + " D2 to process.");
-				DIRBulkUpdate.logger.info("There are no report in " + bu.buName + " D2 to process.");
+				DIRBulkUpdate.logger.warn("{}:{} [DCTM] No audit trail in D2 to process", bu.buName, Thread.currentThread().getName());
 			} else {
 				while (collection.next()) {
 					input = input + ",'" + collection.getString(Constants.d2AuditedField) + "'";
@@ -356,50 +292,38 @@ public class DocumentumFunctions {
 
 			if (!input.equals("")) {
 				input = input.substring(1);
-//				System.out.println("result: " + input);
-				PreparedStatement stmt = bu.conn
-						.prepareStatement(String.format(bu.deleteSql, bu.processingTable, input));
-				System.out.println(stmt);
+				PreparedStatement stmt = bu.conn.prepareStatement(String.format(bu.deleteSql, bu.processingTable, input));
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] checkDeleteDocuments SQL: {}", bu.buName, Thread.currentThread().getName(), stmt);
 				ResultSet rs = stmt.executeQuery();
 				input = "";
 				while (rs.next()) {
 					if (!(rs.getString(Constants.dbDirNumberCol).equals(null)
 							|| rs.getString(Constants.dbDirNumberCol).equals(""))) {
-						bu.buMapForDelete.put(rs.getString(Constants.d2ChronicleId),
-								rs.getString(Constants.dbDirNumberCol));
+						bu.buMapForDelete.put(rs.getString(Constants.d2ChronicleId), rs.getString(Constants.dbDirNumberCol));
 						input = input + ",'" + rs.getString(Constants.d2ChronicleId) + "'";
 					}
-
 				}
-
 			}
 
 			if (!input.equals("")) {
 				input = input.substring(1);
 				IDfCollection collectionForDirsNeeded = null;
 				IDfQuery query = new DfQuery();
-//				System.out.println(bu.deleteDql);
 				String deleteDql = String.format(bu.deleteDql, DIRBulkUpdate.prop.getProperty("type"), input,
 						DIRBulkUpdate.prop.getProperty("statusForDir"));
-				System.out.println(deleteDql);
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] deleteDql: {}", bu.buName, Thread.currentThread().getName(), deleteDql);
 				query.setDQL(deleteDql);
 				collectionForDirsNeeded = query.execute(bu.session, IDfQuery.DF_READ_QUERY);
 				while (collectionForDirsNeeded.next()) {
 					if (bu.buMapForDelete.containsKey(collectionForDirsNeeded.getString(Constants.d2ChronicleId))) {
 						bu.buMapForDelete.remove(collectionForDirsNeeded.getString(Constants.d2ChronicleId));
-
 					}
 				}
 			}
 
-
-
-			System.out.println("There are no documents left to process.");
-			DIRBulkUpdate.logger.info("There are no documents left to process.");
+			DIRBulkUpdate.logger.info("{}:{} [DCTM] checkDeleteDocuments complete", bu.buName, Thread.currentThread().getName());
 		} catch (Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-			DIRBulkUpdate.logger
-					.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+			DIRBulkUpdate.logger.error("{}:{} [DCTM] Error in checkDeleteDocuments", bu.buName, Thread.currentThread().getName(), e);
 			count = 0;
 		} finally {
 			if (collection != null) {
@@ -410,14 +334,11 @@ public class DocumentumFunctions {
 		return count;
 	}
 
-	public static void addDirNumber(String dirNumber, String r_object_id, BUProperties bu, Integer sno,
-			String message) {
-		// TODO Auto-generated method stub
+	public static void addDirNumber(String dirNumber, String r_object_id, BUProperties bu, Integer sno, String message) {
 		try {
 			IDfQuery query = new DfQuery();
-			String documentUpdateDql = String.format(bu.updateDql, DIRBulkUpdate.prop.getProperty("type"), dirNumber,
-					r_object_id);
-			System.out.println(documentUpdateDql);
+			String documentUpdateDql = String.format(bu.updateDql, DIRBulkUpdate.prop.getProperty("type"), dirNumber, r_object_id);
+			DIRBulkUpdate.logger.debug("{}:{} [DCTM] addDirNumber DQL: {}", bu.buName, Thread.currentThread().getName(), documentUpdateDql);
 			query.setDQL(documentUpdateDql);
 			query.execute(bu.session, IDfQuery.DF_EXEC_QUERY);
 			PreparedStatement stmt = bu.conn.prepareStatement(bu.processingDbCreateUpdateSql);
@@ -425,13 +346,11 @@ public class DocumentumFunctions {
 			stmt.setString(2, Constants.completedStatus);
 			stmt.setString(3, message);
 			stmt.setInt(4, sno);
-			System.out.println(stmt);
+			DIRBulkUpdate.logger.debug("{}:{} [DCTM] addDirNumber update SQL: {}", bu.buName, Thread.currentThread().getName(), stmt);
 			stmt.execute();
-			System.out.println("DIR Number Added to Document");
+			DIRBulkUpdate.logger.info("{}:{} [DCTM] DIR Number added to document sno={}", bu.buName, Thread.currentThread().getName(), sno);
 		} catch (Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-			DIRBulkUpdate.logger
-					.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
+			DIRBulkUpdate.logger.error("{}:{} [DCTM] Error adding DIR number sno={}", bu.buName, Thread.currentThread().getName(), sno, e);
 			DatabaseFunctions.updateDbPostBapi(bu, sno,
 					"DIR Created Successfully but Document not updated. " + e.getMessage(),
 					Constants.partCompletedStatus, dirNumber);
@@ -439,11 +358,10 @@ public class DocumentumFunctions {
 	}
 
 	public static void addDirNumberWhichFailed(BUProperties bu) {
-		// TODOAuto-generated method stub
 		try {
 			String updateDirSql = String.format(DIRBulkUpdate.prop.getProperty("selectDocumentsForDocUpdate"),
 					bu.processingTable, Constants.partCompletedStatus, bu.buName);
-			System.out.println(updateDirSql);
+			DIRBulkUpdate.logger.debug("{}:{} [DCTM] addDirNumberWhichFailed SQL: {}", bu.buName, Thread.currentThread().getName(), updateDirSql);
 			PreparedStatement docStmt = bu.conn.prepareStatement(updateDirSql);
 			ResultSet rs = docStmt.executeQuery();
 			if (rs.isBeforeFirst()) {
@@ -452,9 +370,8 @@ public class DocumentumFunctions {
 					Integer sno = rs.getInt(Constants.dbSnoCol);
 					String r_object_id = rs.getString(Constants.dbDocId);
 					IDfQuery query = new DfQuery();
-					String documentUpdateDql = String.format(bu.updateDql, DIRBulkUpdate.prop.getProperty("type"),
-							dirNumber, r_object_id);
-					System.out.println(documentUpdateDql);
+					String documentUpdateDql = String.format(bu.updateDql, DIRBulkUpdate.prop.getProperty("type"), dirNumber, r_object_id);
+					DIRBulkUpdate.logger.debug("{}:{} [DCTM] addDirNumberWhichFailed DQL: {}", bu.buName, Thread.currentThread().getName(), documentUpdateDql);
 					query.setDQL(documentUpdateDql);
 					query.execute(bu.session, IDfQuery.DF_QUERY);
 					PreparedStatement stmt = bu.conn.prepareStatement(bu.processingDbCreateUpdateSql);
@@ -462,25 +379,20 @@ public class DocumentumFunctions {
 					stmt.setString(2, Constants.completedStatus);
 					stmt.setString(3, "DIR successfully created and Document updated.");
 					stmt.setInt(4, sno);
-					System.out.println(stmt);
+					DIRBulkUpdate.logger.debug("{}:{} [DCTM] addDirNumberWhichFailed update SQL: {}", bu.buName, Thread.currentThread().getName(), stmt);
 					stmt.execute();
-					System.out.println("DIR Number Added to Document");
+					DIRBulkUpdate.logger.info("{}:{} [DCTM] DIR Number added to document sno={}", bu.buName, Thread.currentThread().getName(), sno);
 				}
 			}
 		} catch (Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-			DIRBulkUpdate.logger
-					.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-			e.printStackTrace();
-
+			DIRBulkUpdate.logger.error("{}:{} [DCTM] Error in addDirNumberWhichFailed", bu.buName, Thread.currentThread().getName(), e);
 		}
 	}
 
 	public static void finaliseCutoverInput(String documents, BUProperties bu) {
 		IDfQuery query = new DfQuery();
-		// System.out.println(bu.cutoverDql);
-		String documentFetchDql = String.format(bu.cutoverDql, DIRBulkUpdate.prop.getProperty("type"), documents);// ,DIRBulkUpdate.prop.getProperty("documentTypeToSkip"));
-		System.out.println(documentFetchDql);
+		String documentFetchDql = String.format(bu.cutoverDql, DIRBulkUpdate.prop.getProperty("type"), documents);
+		DIRBulkUpdate.logger.debug("{}:{} [DCTM] finaliseCutoverInput DQL: {}", bu.buName, Thread.currentThread().getName(), documentFetchDql);
 		query.setDQL(documentFetchDql);
 		IDfCollection collection = null;
 
@@ -489,37 +401,30 @@ public class DocumentumFunctions {
 			if (collection == null) {
 				DatabaseFunctions.updateDbError(bu, "NA", "No documents in D2 to process. ", Constants.completedStatus,
 						null, "NA", null);
-				System.err.println("There are no report in " + bu.buName + " D2 to process.");
-				DIRBulkUpdate.logger.info("There are no report in " + bu.buName + " D2 to process.");
+				DIRBulkUpdate.logger.warn("{}:{} [DCTM] No documents in D2 to process (cutover)", bu.buName, Thread.currentThread().getName());
 			} else {
 				while (collection.next()) {
-					// new imp for related tags
 					Map<String, String> input = new HashMap<>();
 					Integer valueCount = 0;
 					String[] ids;
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("FLOCField"));
-					System.out.println("floc valueCount: " + valueCount);
+					DIRBulkUpdate.logger.debug("{}:{} [DCTM] cutover floc valueCount={}", bu.buName, Thread.currentThread().getName(), valueCount);
 					if (valueCount != 0) {
 						ids = new String[valueCount];
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("FLOCField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("FLOCField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-						// flocLabels =
-						// flocLabels+","+Arrays.stream(ids).map(key->"'"+key+"'").collect(Collectors.joining(","));
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("FLOCField")), StringUtils.join(ids, ","));
 					}
 
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("TLSTField"));
-					System.out.println("TLST valueCount: " + valueCount);
+					DIRBulkUpdate.logger.debug("{}:{} [DCTM] cutover TLST valueCount={}", bu.buName, Thread.currentThread().getName(), valueCount);
 					if (valueCount != 0) {
 						ids = new String[valueCount];
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("TLSTField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("TLSTField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("TLSTField")), StringUtils.join(ids, ","));
 					}
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("IPLNField"));
 					if (valueCount != 0) {
@@ -527,46 +432,33 @@ public class DocumentumFunctions {
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("IPLNField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("IPLNField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("IPLNField")), StringUtils.join(ids, ","));
 					}
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("WRDRField"));
-					System.out.println("WRDR valueCount: " + valueCount);
+					DIRBulkUpdate.logger.debug("{}:{} [DCTM] cutover WRDR valueCount={}", bu.buName, Thread.currentThread().getName(), valueCount);
 					if (valueCount != 0) {
 						ids = new String[valueCount];
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("WRDRField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("WRDRField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("WRDRField")), StringUtils.join(ids, ","));
 					}
 					valueCount = collection.getValueCount(DIRBulkUpdate.prop.getProperty("EQUIField"));
-					System.out.println("EQUI valueCount: " + valueCount);
+					DIRBulkUpdate.logger.debug("{}:{} [DCTM] cutover EQUI valueCount={}", bu.buName, Thread.currentThread().getName(), valueCount);
 					if (valueCount != 0) {
 						ids = new String[valueCount];
 						for (int i = 0; i < valueCount; i++) {
 							ids[i] = collection.getRepeatingString(DIRBulkUpdate.prop.getProperty("EQUIField"), i);
 						}
-						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("EQUIField")),
-								StringUtils.join(ids, ","));// "FLOC - sap_xecm_floc_tags");
-
+						input.put(bu.attrIndex.get(DIRBulkUpdate.prop.getProperty("EQUIField")), StringUtils.join(ids, ","));
 					}
 					bu.buMap.put(collection.getString(Constants.d2ChronicleId), input);
 					bu.buMapWithPlants.put(collection.getString(Constants.d2ChronicleId), "");
-					// end new imp for related tags
 
 					Map<String, String> dirMap = new HashMap<>();
 					String objectId = collection.getString(Constants.dbDocId);
 					String chronicleId = collection.getString(Constants.d2ChronicleId);
 					String dirNumber = collection.getString(Constants.d2DirField);
-					// System.out.println("C: "+chronicleId+": R: "+objectId+": D: "+dirNumber);
-					/*
-					 * if(!objectId.equals(chronicleId)) {
-					 * bu.buMap.put(chronicleId,bu.buMap.get(objectId)); bu.buMap.remove(objectId);
-					 * }
-					 */
 					if (!(dirNumber.equals(null) || dirNumber.equals(""))) {
 						bu.docsWithDir.put(chronicleId, dirNumber);
 						dirMap.put(objectId, dirNumber);
@@ -574,25 +466,17 @@ public class DocumentumFunctions {
 						dirMap.put(objectId, "");
 					}
 					bu.docsWithNewVersion.put(chronicleId, dirMap);
-					// System.out.println(bu.docsWithNewVersion);
 					bu.titles.put(chronicleId, collection.getString(Constants.d2TitleField));
 				}
 
-				System.out.println("bu.buMap from checkInputDocuments cutover: " + bu.buMap);
-				System.out
-						.println("bu.docsWithNewVersion from checkInputDocuments cutover: " + bu.docsWithNewVersion);
-				System.out.println("bu.titles from checkInputDocuments cutover: " + bu.titles);
-
-				System.out.println(">>>>>>>>>Fetching planning plants from workspace during cutover<<<<<<<<<<<");
-//				FetchPlanningPlants(bu);
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] cutover buMap: {}", bu.buName, Thread.currentThread().getName(), bu.buMap);
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] cutover docsWithNewVersion: {}", bu.buName, Thread.currentThread().getName(), bu.docsWithNewVersion);
+				DIRBulkUpdate.logger.debug("{}:{} [DCTM] cutover titles: {}", bu.buName, Thread.currentThread().getName(), bu.titles);
+				DIRBulkUpdate.logger.info("{}:{} [PLANTS] Fetching planning plants from workspace during cutover", bu.buName, Thread.currentThread().getName());
 			}
 		} catch (Exception e) {
-			System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-			DIRBulkUpdate.logger
-					.info(bu.buName + ":" + Thread.currentThread().getName() + ": Error :" + e.getMessage());
-
+			DIRBulkUpdate.logger.error("{}:{} [DCTM] Error in finaliseCutoverInput", bu.buName, Thread.currentThread().getName(), e);
 		}
-
 	}
 
 	public static void getFlocAlternateLabels(BUProperties bu) {
@@ -641,24 +525,21 @@ public class DocumentumFunctions {
 		String flocDql = String.format(bu.flocDql, DIRBulkUpdate.prop.getProperty("flocTable"), date,
 				DIRBulkUpdate.prop.getProperty("sapSystem"));
 
-		System.out.println(bu.buName + ":" + Thread.currentThread().getName() + ": " + flocDql);
+		DIRBulkUpdate.logger.debug("{}:{} [FLOC] getAlternateLabelsFromD2 DQL: {}", bu.buName, Thread.currentThread().getName(), flocDql);
 		IDfQuery flocQuery = new DfQuery();
 		flocQuery.setDQL(flocDql);
 		IDfCollection flocCollection;
 		try {
 			flocCollection = flocQuery.execute(bu.session, IDfQuery.DF_READ_QUERY);
 			if (flocCollection == null) {
-				System.err.println(bu.buName + ":" + Thread.currentThread().getName() + ": "
-						+ "There are no new FLOCs in " + bu.buName + " D2");
-				DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": "
-						+ "There are no new FLOCs in " + bu.buName + " D2");
+				DIRBulkUpdate.logger.warn("{}:{} [FLOC] No new FLOCs in D2", bu.buName, Thread.currentThread().getName());
 			} else {
 				PreparedStatement stmtFloc = bu.conn.prepareStatement(bu.flocDbUpdateSql);
 				bu.conn.setAutoCommit(false);
 				while (flocCollection.next()) {
 					if (!(flocCollection.getString(Constants.d2AlternateLabel) == null
 							|| flocCollection.getString(Constants.d2AlternateLabel).equals(""))) {
-						System.out.println("AlternateLabel: " + flocCollection.getString(Constants.d2AlternateLabel));
+						DIRBulkUpdate.logger.debug("{}:{} [FLOC] AlternateLabel={}", bu.buName, Thread.currentThread().getName(), flocCollection.getString(Constants.d2AlternateLabel));
 						stmtFloc.setString(2, flocCollection.getString(Constants.d2AlternateLabel));
 						stmtFloc.setString(1, flocCollection.getString(Constants.d2ObjectName));
 						stmtFloc.setString(3, bu.buName);
@@ -670,11 +551,7 @@ public class DocumentumFunctions {
 				bu.conn.setAutoCommit(true);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.err.println(bu.buName + ":" + Thread.currentThread().getName() + ": "
-					+ "Error while fetching FLOCs from " + bu.buName + " D2");
-			DIRBulkUpdate.logger.info(bu.buName + ":" + Thread.currentThread().getName() + ": "
-					+ "Error while FLOCs from " + bu.buName + " D2");
+			DIRBulkUpdate.logger.error("{}:{} [FLOC] Error fetching FLOCs from D2", bu.buName, Thread.currentThread().getName(), e);
 		}
 	}
 
@@ -704,13 +581,12 @@ public class DocumentumFunctions {
 			//query.execute(bu.session, IDfQuery.DF_QUERY);
 			XECMDoc2TagServiceMethod doc2tagsvc = new XECMDoc2TagServiceMethod();
 			Properties config = getD2DictionaryConfigValues(bu.session);
-//			System.out.println("relatedTags getD2DictionaryConfigValues config properties: " + config);
+			DIRBulkUpdate.logger.debug("{}:{} [DCTM] executeRelatedTags config: {}", bu.buName, Thread.currentThread().getName(), config);
 			doc2tagsvc.processTag2DocInfo(config, bu.session, r_object_id);
 			doc2tagsvc.processDocLink2Tags(bu.session, r_object_id);
-			System.out.println("Related Tags Method successful for:" + r_object_id);
+			DIRBulkUpdate.logger.info("{}:{} [DCTM] Related Tags method successful for objectId={}", bu.buName, Thread.currentThread().getName(), r_object_id);
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("Related Tags Method failed for:" + r_object_id);
+			DIRBulkUpdate.logger.error("{}:{} [DCTM] Related Tags method failed for objectId={}", bu.buName, Thread.currentThread().getName(), r_object_id, e);
 		}
 	}
 
@@ -727,16 +603,15 @@ public class DocumentumFunctions {
 				configValues.put(collectionObj.getString("object_name"), collectionObj.getString("locale_value"));
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			DIRBulkUpdate.logger.error("[DCTM] Error fetching xecmtag2docconfig dictionary", e);
 		} finally {
 			if (collectionObj != null) {
 				collectionObj.close();
 			}
 		}
 		if (!configValues.isEmpty()) {
-			d2DDConfig.putAll(configValues); // populating Properties object with key value pairs from DD.
+			d2DDConfig.putAll(configValues);
 		}
 		return d2DDConfig;
 	}
-
 }

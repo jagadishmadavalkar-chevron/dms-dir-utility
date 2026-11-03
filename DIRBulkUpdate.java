@@ -2,7 +2,10 @@ package DIRBulkUpdate;
 
 
 import java.util.*;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.config.Configurator;
 
 import com.documentum.fc.client.DfClient;
 import com.documentum.fc.client.DfQuery;
@@ -16,11 +19,9 @@ import com.documentum.fc.common.DfLoginInfo;
 import com.documentum.fc.common.IDfLoginInfo;
 
 
-import org.apache.logging.log4j.LogManager;
-
 public class DIRBulkUpdate{
     protected static Properties prop = new Properties();
-    protected static final Logger logger = LogManager.getLogger();	
+    protected static final Logger logger = LogManager.getLogger();
 
     /*
      * Order of Execution:
@@ -38,70 +39,49 @@ public class DIRBulkUpdate{
      * 14.Exit
      */
     public static void main(String[] args) {
-    	Decryptor decryptor = new Decryptor();		// Decryptor initialised to decrypt DCTM password, DB Password, APIM Password, Client Secret, and API Key
+    	Decryptor decryptor = new Decryptor();
         String documentumUserName = null;
-        
-        
-        System.out.println("DIR Creation process started");
-        DIRBulkUpdate.logger.info("DIR Creation process started");
-        
-        
-        
+
+        logger.info("[INIT] DIR Creation process started");
+
         try {
-            documentumUserName = System.getenv("DocumentumUser"); // Fetching Documentum Username
+            documentumUserName = System.getenv("DocumentumUser");
         } catch (Exception e) {
-        	e.printStackTrace();
-            System.out.println("Could not extract Documentum User Name.");
-            DIRBulkUpdate.logger.error("Could not extract Documentum User Name.");
+            logger.error("[INIT] Could not extract Documentum User Name", e);
             System.exit(0);
         }
         String documentumUserPass = null;
         try {
-            documentumUserPass = PrimaryThreadForBu.decryptEnvVar("DocumentumPw", decryptor); // Fetching and decrypting Documentum password
+            documentumUserPass = PrimaryThreadForBu.decryptEnvVar("DocumentumPw", decryptor);
         } catch (Exception e) {
-        	e.printStackTrace();
-            System.out.println("Could not extract Documentum User Password.");
-            DIRBulkUpdate.logger.error("Could not extract Documentum User Password.");
+            logger.error("[INIT] Could not extract Documentum User Password", e);
             System.exit(0);
         }
         String docBase = null;
         try {
-            docBase = System.getenv("Docbase"); // Fetching Docbase
+            docBase = System.getenv("Docbase");
         } catch (Exception e) {
-        	e.printStackTrace();
-            System.out.println("Could not extract Documentum docBase.");
-            DIRBulkUpdate.logger.error("Could not extract Documentum docbase.");
+            logger.error("[INIT] Could not extract Documentum docBase", e);
             System.exit(0);
         }
-        
-        System.out.println("Documentum User: " + documentumUserName);
-        System.out.println("Documentum Docbase: " + docBase);
-        
-        DIRBulkUpdate.logger.info("Documentum User={}, Docbase={}", documentumUserName, docBase);
-        
-        System.out.println("Documentum session initialization started: docBase: " + docBase);
-        DIRBulkUpdate.logger.info("Documentum session initialization started: docBase: {}", docBase);
-        
+
+        logger.info("[INIT] Documentum User={} Docbase={}", documentumUserName, docBase);
+        logger.info("[INIT] Documentum session initialization started: docBase={}", docBase);
+
         IDfClient client = new DfClient();
         IDfSessionManager sessionManager = client.newSessionManager();
         IDfSession session = null;
         try {
-        	// Initializing Documentum session.
-            session = createDocumentumSession(documentumUserName, documentumUserPass, docBase, sessionManager); 
+        	session = createDocumentumSession(documentumUserName, documentumUserPass, docBase, sessionManager);
         } catch (DfException e) {
-        	e.printStackTrace();
-            System.out.println("Could not connect to docbase.");
-            DIRBulkUpdate.logger.error("Could not connect to docbase.");
+            logger.error("[INIT] Could not connect to docbase", e);
             System.exit(0);
         }
         if (session == null) {
-            System.out.println("Could not connect to docbase.");
-            DIRBulkUpdate.logger.error("Could not connect to docbase.");
+            logger.error("[INIT] Could not connect to docbase - session is null");
             System.exit(0);
         }
-        
-        
-       
+
         // Extracting Business Unit name.
         String buName = null;
         if(docBase.contains("mcbu") || docBase.contains("MCBU")) {
@@ -117,44 +97,40 @@ public class DIRBulkUpdate{
 		} else if(docBase.contains("sntb") || docBase.contains("SNTB")) { // R2C
 			buName = "STCO";
 		}
-        
-        System.out.println("Initialized BuName: " + buName);
-        DIRBulkUpdate.logger.info("Initialized BuName: {}", buName);
-        
-        System.out.println("Loading Data Dictionary: " + buName);
-        DIRBulkUpdate.logger.info("Loading Data Dictionary: " + buName);
-        
+
+        logger.info("[INIT] Initialized BuName={}", buName);
+        logger.info("[INIT] Loading Data Dictionary for BU={}", buName);
+
         try {
-        	// fetching Data Dictionary from docbase
 			prop = getD2DictionaryConfigValues(session);
 			// R4A
 			if(prop == null || prop.isEmpty()) {
-				System.out.println("Data dictionary is empty or not present in " + buName);
-				logger.info("Data dictionary is empty or not present in " + buName);
+				logger.error("[INIT] Data dictionary is empty or not present in {}", buName);
 				System.exit(0);
 			}
 		} catch (DfException e) {
-			e.printStackTrace();
-			System.out.println("Could not fetch DD.");
-            DIRBulkUpdate.logger.info("Could not fetch DD.");
+			logger.error("[INIT] Could not fetch Data Dictionary", e);
             System.exit(0);
 		}
-        
-        System.out.println("Starting Primary Thread for BU: " + buName);
-        DIRBulkUpdate.logger.info("Starting Primary Thread for BU: " + buName);
-        // Initializing primary method 
+
+        // Apply debug mode if configured in D2 dictionary (debugMode=True enables DEBUG level on both Console and File)
+        if ("True".equalsIgnoreCase(prop.getProperty("debugMode"))) {
+            Configurator.setRootLevel(Level.DEBUG);
+            logger.info("[INIT] DEBUG mode enabled - verbose logging active on console and file");
+        }
+
+        logger.info("[INIT] Starting Primary Thread for BU={}", buName);
         PrimaryThreadForBu buThread = new PrimaryThreadForBu(buName, prop, session, docBase);
         buThread.executeForBu();
-        
-        System.out.println("DIR Creation completed for BU: " + buName);
-        DIRBulkUpdate.logger.info("DIR Creation completed for BU: " + buName);
-        System.exit(0);
 
+        logger.info("[INIT] DIR Creation completed for BU={}", buName);
+        System.exit(0);
     }
+
     /*
-     * This function takes the documentum session as argument and queries the docbase 
-     * for the data dictionary configured in the BU documentum for the DIR Creation bulk utility. 
-     * This data dictionary is returned as a Properties object.   
+     * This function takes the documentum session as argument and queries the docbase
+     * for the data dictionary configured in the BU documentum for the DIR Creation bulk utility.
+     * This data dictionary is returned as a Properties object.
      */
     private static Properties getD2DictionaryConfigValues(IDfSession dctmSession) throws DfException {
 		 Properties d2DDConfig = new Properties();
@@ -170,38 +146,35 @@ public class DIRBulkUpdate{
 				 configValues.put(collectionObj.getString("object_name"), collectionObj.getString("locale_value"));
 			 }
 		 } catch (Exception e) {
-			 e.printStackTrace();
+			 logger.error("[INIT] Error fetching Data Dictionary", e);
 		 } finally {
 			 if (collectionObj != null) {
 				 collectionObj.close();
 			 }
 		 }
 		 if (!configValues.isEmpty()) {
-			 d2DDConfig.putAll(configValues);	// populating Properties object with key value pairs from DD.
+			 d2DDConfig.putAll(configValues);
 		 }
-//		 System.out.println("Data Dictionary values: " + d2DDConfig);
 		 return d2DDConfig;
 	 }
+
     /*
      * This function takes the documentum username, password, session manager and docbase as arguments
      * and creates a Documentum Session.
      */
    protected static IDfSession createDocumentumSession(String user, String password, String docbase, IDfSessionManager sessionManager) throws DfException {
        IDfSession Session = null;
-       System.out.println("Creating Documentum session for Docbase: " + docbase);
-       logger.info("Creating Documentum session for Docbase: " + docbase);
+       logger.info("[INIT] Creating Documentum session for Docbase={}", docbase);
        IDfLoginInfo loginInfo = new DfLoginInfo();
        loginInfo.setUser(user);
        loginInfo.setPassword(password);
        try {
            sessionManager.setIdentity(docbase, loginInfo);
            Session = sessionManager.getSession(docbase);
-           System.out.println(docbase+" Documentum session created!");
-           logger.info(docbase+" Documentum session created!");
+           logger.info("[INIT] Documentum session created for Docbase={}", docbase);
        } catch (Exception e) {
-           System.err.println("Failed to create Documentum session: " + e.getMessage());
-           logger.error("Failed to create Documentum session: " + e.getMessage());
+           logger.error("[INIT] Failed to create Documentum session for Docbase={}", docbase, e);
        }
        return Session;
    }
-}
+}-

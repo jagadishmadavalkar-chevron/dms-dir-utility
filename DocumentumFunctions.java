@@ -124,6 +124,13 @@ public class DocumentumFunctions {
 					}
 					bu.docsWithNewVersion.put(collection.getString(Constants.d2ChronicleId), dirMap);
 					bu.titles.put(collection.getString(Constants.d2ChronicleId), collection.getString(Constants.d2TitleField));
+					DIRBulkUpdate.logger.debug("{}:{} [DCTM] doc r_object_id={} chronicleId={} title={} dirNum={} tags={}",
+						bu.buName, Thread.currentThread().getName(),
+						collection.getString(Constants.dbDocId),
+						collection.getString(Constants.d2ChronicleId),
+						collection.getString(Constants.d2TitleField),
+						collection.getString(Constants.d2DirField),
+						input);
 				}
 
 				DIRBulkUpdate.logger.debug("{}:{} [DCTM] checkInputDocuments buMap: {}", bu.buName, Thread.currentThread().getName(), bu.buMap);

@@ -22,14 +22,17 @@
     </Appenders>
 
     <Loggers>
-        <!--
-            Default level is INFO.
-            When debugMode=True in the D2 data dictionary, DIRBulkUpdate.java calls
-            Configurator.setRootLevel(Level.DEBUG) at startup, which switches both
-            Console and File appenders to DEBUG without any restart or redeploy.
-        -->
-        <Root level="INFO">
+        <!-- Our application code only: routes to Console + File, level set at runtime -->
+        <Logger name="DIRBulkUpdate" level="INFO" additivity="false">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        <!-- DFC internal loggers: file only at WARN to capture real errors, suppress INFO noise -->
+        <Logger name="com.documentum" level="WARN" additivity="false">
+            <AppenderRef ref="File"/>
+        </Logger>
+        <!-- Root at ERROR: suppresses remaining unqualified DFC messages (keystore, identity bundle, privilege escalation, etc.) -->
+        <Root level="ERROR">
             <AppenderRef ref="File"/>
         </Root>
     </Loggers>

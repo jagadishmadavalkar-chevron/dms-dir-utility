@@ -113,9 +113,9 @@ public class DIRBulkUpdate{
             System.exit(0);
 		}
 
-        // Apply debug mode if configured in D2 dictionary (debugMode=True enables DEBUG level on both Console and File)
+        // Apply debug mode if configured in D2 dictionary (debugMode=True enables DEBUG on our logger only — DFC stays suppressed)
         if ("True".equalsIgnoreCase(prop.getProperty("debugMode"))) {
-            Configurator.setRootLevel(Level.DEBUG);
+            Configurator.setLevel("DIRBulkUpdate", Level.DEBUG);
             logger.info("[INIT] DEBUG mode enabled - verbose logging active on console and file");
         }
 

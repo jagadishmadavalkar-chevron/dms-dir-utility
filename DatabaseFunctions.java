@@ -197,6 +197,7 @@ public class DatabaseFunctions {
 				while (dirRs.next()) {
 					if (!(dirRs.getString(Constants.dbDirNumberCol) == null || dirRs.getString(Constants.dbDirNumberCol).equals(""))) {
 						bu.docsWithDir.put(dirRs.getString(Constants.d2ChronicleId), dirRs.getString(Constants.dbDirNumberCol));
+					DIRBulkUpdate.logger.debug("{}:{} [DELTA] chronicleId={} existing DIR={}", bu.buName, Thread.currentThread().getName(), dirRs.getString(Constants.d2ChronicleId), dirRs.getString(Constants.dbDirNumberCol));
 					} else {
 						DIRBulkUpdate.logger.debug("{}:{} [DELTA] {}: No existing DIR", bu.buName, Thread.currentThread().getName(), dirRs.getString(Constants.d2ChronicleId));
 					}
@@ -272,6 +273,9 @@ public class DatabaseFunctions {
 			            			addToDir = String.join(",", newIdList);
 			            			removeFromDir = String.join(",", oldIdList);
 			            		}
+			            		DIRBulkUpdate.logger.debug("{}:{} [DELTA] objectId={} attr={} oldIds={} newIds={} addToDir={} removeFromDir={}",
+			            			bu.buName, Thread.currentThread().getName(),
+			            			objectId, inputAttrs[i], oldIds, newIds, addToDir, removeFromDir);
 			            		if (!addToDir.equals("")) {
 			            			boIdMap.put(inputAttrs[i] + "_create", addToDir);
 			            		}
@@ -370,6 +374,9 @@ public class DatabaseFunctions {
 					String dirNumber = rs.getString(Constants.dbDirNumberCol);
 					String planningPlant = rs.getString(Constants.dbPlant); // R4A
 					String title = rs.getString(Constants.d2TitleField); // R4A
+					DIRBulkUpdate.logger.debug("{}:{} [BAPI] row sno={} r_object_id={} operation={} plant={} dirNumber={} title={} modString={}",
+						bu.buName, Thread.currentThread().getName(),
+						sno, r_object_id, operation, planningPlant, dirNumber, title, modString);
 					esSap.execute(new SAPOperations(boIdsJson, r_object_id, operation, bu, sno, sapLatch, dirNumber, planningPlant, title));// R4A
 				}
 				sapLatch.await();

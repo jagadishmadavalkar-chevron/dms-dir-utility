@@ -153,6 +153,7 @@ public class PrimaryThreadForBu {
 				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetching FLOC alternate labels from D2", buName, Thread.currentThread().getName());
 				DocumentumFunctions.getAlternateLabelsFromD2(bu);
 				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetched FLOC alternate labels from D2", buName, Thread.currentThread().getName());
+				DIRBulkUpdate.logger.debug("{}:{} [FLOC] flocLabelToAlternate after D2 fetch: {}", buName, Thread.currentThread().getName(), bu.flocLabelToAlternate);
 
 				DIRBulkUpdate.logger.info("{}:{} [FETCH] Fetching documents from D2", buName, Thread.currentThread().getName());
 				if (!prop.getProperty("cutOverFlag").equalsIgnoreCase("True")) {
@@ -245,6 +246,7 @@ public class PrimaryThreadForBu {
 				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetching FLOC alternate labels for BAPI", buName, Thread.currentThread().getName());
 				DocumentumFunctions.getFlocAlternateLabels(bu);
 				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetched FLOC alternate labels for BAPI", buName, Thread.currentThread().getName());
+				DIRBulkUpdate.logger.debug("{}:{} [FLOC] flocLabelToAlternate before BAPI: {}", buName, Thread.currentThread().getName(), bu.flocLabelToAlternate);
 				DatabaseFunctions.processDirs(bu);
 				DIRBulkUpdate.logger.info("{}:{} [BAPI] DIRs processed successfully", buName, Thread.currentThread().getName());
 			} catch (Exception e) {

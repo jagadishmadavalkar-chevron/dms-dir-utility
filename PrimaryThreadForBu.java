@@ -139,6 +139,7 @@ public class PrimaryThreadForBu {
 		bu.setAttrIndex();
 
 		if (prop.getProperty("pullDirectory").equalsIgnoreCase("True")) {
+			DIRBulkUpdate.logger.info("============================================================");
 			DIRBulkUpdate.logger.info("{}:{} [FETCH] Pulling directory", buName, Thread.currentThread().getName());
 
 			try {
@@ -164,6 +165,7 @@ public class PrimaryThreadForBu {
 					DatabaseFunctions.fetchDocuments(bu);
 				}
 				DIRBulkUpdate.logger.info("{}:{} [FETCH] Documents fetched", buName, Thread.currentThread().getName());
+				DIRBulkUpdate.logger.info("============================================================");
 
 			} catch (Exception e) {
 				DIRBulkUpdate.logger.error("{}:{} [FETCH] Error during fetch phase", bu.buName, Thread.currentThread().getName(), e);
@@ -173,10 +175,12 @@ public class PrimaryThreadForBu {
 		}
 
 		if (prop.getProperty("populateStaging").equalsIgnoreCase("True")) {
+			DIRBulkUpdate.logger.info("============================================================");
 			DIRBulkUpdate.logger.info("{}:{} [STAGING] Populating staging table", buName, Thread.currentThread().getName());
 			try {
 				DatabaseFunctions.populateStagingTable(bu);
 				DIRBulkUpdate.logger.info("{}:{} [STAGING] Staging table populated", buName, Thread.currentThread().getName());
+				DIRBulkUpdate.logger.info("============================================================");
 			} catch (Exception e) {
 				DIRBulkUpdate.logger.error("{}:{} [STAGING] Error populating staging table", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
@@ -185,10 +189,12 @@ public class PrimaryThreadForBu {
 		}
 
 		if (prop.getProperty("compareAndFindDeltas").equalsIgnoreCase("True")) {
+			DIRBulkUpdate.logger.info("============================================================");
 			DIRBulkUpdate.logger.info("{}:{} [DELTA] Finding deltas", buName, Thread.currentThread().getName());
 			try {
 				DatabaseFunctions.findDeltas(bu);
 				DIRBulkUpdate.logger.info("{}:{} [DELTA] Deltas found", buName, Thread.currentThread().getName());
+				DIRBulkUpdate.logger.info("============================================================");
 			} catch (Exception e) {
 				DIRBulkUpdate.logger.error("{}:{} [DELTA] Error finding deltas", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
@@ -196,6 +202,7 @@ public class PrimaryThreadForBu {
 			}
 		}
 
+		DIRBulkUpdate.logger.info("============================================================");
 		DIRBulkUpdate.logger.info("{}:{} [DELTA] DIRs to create={}", buName, Thread.currentThread().getName(), bu.buMap.length());
 		DIRBulkUpdate.logger.info("{}:{} [DELTA] DIRs to update={}", buName, Thread.currentThread().getName(), bu.buMapForUpdate.length());
 		DIRBulkUpdate.logger.info("{}:{} [DELTA] DIRs to delete={}", buName, Thread.currentThread().getName(), bu.buMapForDelete.size());
@@ -204,6 +211,7 @@ public class PrimaryThreadForBu {
 		DIRBulkUpdate.logger.debug("{}:{} [DELTA] buMapForDelete contents: {}", buName, Thread.currentThread().getName(), bu.buMapForDelete);
 
 		// R4A
+		DIRBulkUpdate.logger.info("============================================================");
 		DIRBulkUpdate.logger.info("{}:{} [PLANTS] Retrieving planning plants for CREATE", buName, Thread.currentThread().getName());
 		if (!bu.buMap.isEmpty()) {
 			DocumentumFunctions.FetchPlanningPlants(bu, "CREATE");
@@ -227,12 +235,15 @@ public class PrimaryThreadForBu {
 		} else {
 			DIRBulkUpdate.logger.info("{}:{} [PLANTS] No documents for DELETE", buName, Thread.currentThread().getName());
 		}
+		DIRBulkUpdate.logger.info("============================================================");
 
 		if (prop.getProperty("populateProcessing").equalsIgnoreCase("True")) {
+			DIRBulkUpdate.logger.info("============================================================");
 			DIRBulkUpdate.logger.info("{}:{} [PROCESS] Populating processing table", buName, Thread.currentThread().getName());
 			try {
 				DatabaseFunctions.populateProcessingTable(bu);
 				DIRBulkUpdate.logger.info("{}:{} [PROCESS] Processing table populated", buName, Thread.currentThread().getName());
+				DIRBulkUpdate.logger.info("============================================================");
 			} catch (Exception e) {
 				DIRBulkUpdate.logger.error("{}:{} [PROCESS] Error populating processing table", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
@@ -241,6 +252,7 @@ public class PrimaryThreadForBu {
 		}
 
 		if (prop.getProperty("callBapis").equalsIgnoreCase("True")) {
+			DIRBulkUpdate.logger.info("============================================================");
 			DIRBulkUpdate.logger.info("{}:{} [BAPI] Calling SAP API endpoints", buName, Thread.currentThread().getName());
 			try {
 				DIRBulkUpdate.logger.info("{}:{} [FLOC] Fetching FLOC alternate labels for BAPI", buName, Thread.currentThread().getName());
@@ -249,6 +261,7 @@ public class PrimaryThreadForBu {
 				DIRBulkUpdate.logger.debug("{}:{} [FLOC] flocLabelToAlternate before BAPI: {}", buName, Thread.currentThread().getName(), bu.flocLabelToAlternate);
 				DatabaseFunctions.processDirs(bu);
 				DIRBulkUpdate.logger.info("{}:{} [BAPI] DIRs processed successfully", buName, Thread.currentThread().getName());
+				DIRBulkUpdate.logger.info("============================================================");
 			} catch (Exception e) {
 				DIRBulkUpdate.logger.error("{}:{} [BAPI] Error processing DIRs", bu.buName, Thread.currentThread().getName(), e);
 				bu.cleanUp();
@@ -256,6 +269,7 @@ public class PrimaryThreadForBu {
 			}
 		}
 
+		DIRBulkUpdate.logger.info("============================================================");
 		DIRBulkUpdate.logger.info("{}:{} [REPORT] Generating batch report", buName, Thread.currentThread().getName());
 		if (prop.getProperty("report").equalsIgnoreCase("True")) {
 			try {

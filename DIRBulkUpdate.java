@@ -92,11 +92,16 @@ public class DIRBulkUpdate{
 			buName = "SJV";
 		}else if(docBase.contains("gom") || docBase.contains("GOM")) {
 			buName = "GOM";
-		}else if(docBase.contains("dmcspo") || docBase.contains("DMCSPO")) { // R4A
+		}else if(docBase.contains("dmcspo") || docBase.contains("DMCSPO") || docBase.contains("cpp") || docBase.contains("CPP")) { // R4A
 			buName = "CREG";
 		} else if(docBase.contains("sntb") || docBase.contains("SNTB")) { // R2C
 			buName = "STCO";
 		}
+        
+        if (buName == null) {
+            logger.error("[INIT] Could not initialize the buName");
+            System.exit(0);
+        }
 
         logger.info("[INIT] Initialized BuName={}", buName);
         logger.info("[INIT] Loading Data Dictionary for BU={}", buName);
@@ -177,4 +182,4 @@ public class DIRBulkUpdate{
        }
        return Session;
    }
-}-
+}

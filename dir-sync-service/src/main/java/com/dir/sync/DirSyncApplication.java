@@ -1,11 +1,12 @@
 package com.dir.sync;
 
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+// @EnableBatchProcessing is intentionally omitted — in Spring Boot 3.x it disables
+// Boot's auto-configuration of JobRepository and schema initialisation.
+// Spring Boot 3 auto-configures Spring Batch without this annotation.
 @SpringBootApplication
-@EnableBatchProcessing
 public class DirSyncApplication {
 
     public static void main(String[] args) {

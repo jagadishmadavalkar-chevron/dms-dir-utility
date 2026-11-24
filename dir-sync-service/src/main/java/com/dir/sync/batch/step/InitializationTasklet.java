@@ -65,11 +65,10 @@ public class InitializationTasklet implements Tasklet {
         int    batchNo       = processingRepository.getMaxBatchValue(buContext, props.get("maxBatchNumber"));
         String dateOfLastRun = processingRepository.getDateOfLastRun(buContext, props.get("lastRunDate"));
 
-        // Initialise BuContext from DirJobProperties + decrypted credentials
+        // Initialise BuContext from DirJobProperties + decrypted credentials.
+        // conn was already opened above; initialize() does not touch it.
         buContext.initialize(props, buName, docBase, batchNo, dateOfLastRun,
                 dBPassword, apimPassword, clientSecret, apiKey);
-        // Re-assign the conn since initialize() doesn't touch it
-        buContext.conn = buContext.conn; // already set above
 
         pipelineState.initialize();
 
@@ -79,7 +78,7 @@ public class InitializationTasklet implements Tasklet {
             logger.info("[INIT] DEBUG mode enabled");
         }
 
-        buContext.session = documentumConfig.getSession();
+        // IDfSession is held by DocumentumConfig — services access it via documentumConfig.getSession()
 
         logger.info("{}:{} [INIT] BuContext initialised — batchNo={} dateOfLastRun={}",
                 buName, Thread.currentThread().getName(), batchNo, dateOfLastRun);
